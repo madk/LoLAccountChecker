@@ -1,0 +1,57 @@
+﻿<Controls:MetroWindow x:Class="LoLAccountChecker.Views.AccountWindow"
+                      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+                      Title="Champions" Height="390" Width="600" BorderBrush="#CC008A00" BorderThickness="1">
+
+    <TabControl>
+        <TabItem Header="Champions">
+            <DataGrid x:Name="ChampionsGrid" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                      AutoGenerateColumns="False" ItemsSource="{Binding ChampionData}" IsReadOnly="True"
+                      GridLinesVisibility="All">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+                    <DataGridTextColumn Header="Purchase Date"
+                                        Binding="{Binding PurchaseDate, StringFormat=\{0:dd-MM-yyyy HH:mm\}}" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </TabItem>
+        <TabItem Header="Skins">
+            <DataGrid x:Name="SkinsGrid" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                      AutoGenerateColumns="False" ItemsSource="{Binding SkinData}" IsReadOnly="True"
+                      GridLinesVisibility="All">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+                    <DataGridTextColumn Header="Obtainable" Binding="{Binding StillObtainable}" />
+                </DataGrid.Columns>
+                <DataGrid.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="View model" Click="CmViewModel" />
+                    </ContextMenu>
+                </DataGrid.ContextMenu>
+            </DataGrid>
+        </TabItem>
+        <TabItem Header="Runes">
+            <DataGrid x:Name="RunesGrid" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                      AutoGenerateColumns="False" ItemsSource="{Binding ChampionData}" IsReadOnly="True"
+                      GridLinesVisibility="All">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Qnt." Binding="{Binding Quantity}" Width="50" />
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200" />
+                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*" />
+                    <DataGridTextColumn Header="Tier" Binding="{Binding Tier}" Width="50" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </TabItem>
+        <TabItem Header="Transfers">
+            <DataGrid x:Name="TransfersGrid" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                      AutoGenerateColumns="False" ItemsSource="{Binding Transfers}" IsReadOnly="True" Grid.RowSpan="1"
+                      BorderBrush="LightGray" BorderThickness="0,1" GridLinesVisibility="All">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+                    <DataGridTextColumn Header="Price" Binding="{Binding Price}" Width="150" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </TabItem>
+    </TabControl>
+</Controls:MetroWindow>
