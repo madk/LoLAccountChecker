@@ -25,13 +25,9 @@ You can also import and export checked accounts that you want to see later.
 
 ### Requirements:
 
- * [PvPNetConnect](https://github.com/madk/PVPNetConnect)
+ * [PvPNetConnect]
 
 ### Export
 You can export your accounts to a JSON file (this way you can import it later), or by creating your own layout. Check [Custom Export](https://github.com/madk/LoLAccountChecker/blob/master/Custom%20Export.md) to see the variables and some examples.
 
-
-### Reupload
-The reason i'm reuploading this projects it's because people are selling it to others, this is a free open-source tool, i'm not going to change anything, the only thing i will probably update is the changes that are required between patches.
-
-[![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=CHEV6LWPMHUMW)
+[![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=X9559SH2MKQ7S)
