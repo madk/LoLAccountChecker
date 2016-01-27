@@ -24,6 +24,10 @@
 using System.Diagnostics;
 using System.Windows;
 using LoLAccountChecker.Classes;
+using System.Linq;
+using System;
+using System.Windows.Data;
+using System.ComponentModel;
 
 #endregion
 
@@ -31,36 +35,62 @@ namespace LoLAccountChecker.Views
 {
     public partial class AccountWindow
     {
+        private Account mAccount;
+
+        private bool mChampsWithSkins = false;
+
         public AccountWindow(Account account)
         {
             InitializeComponent();
+            
+            this.mAccount = account;
 
-            Title = string.Format("{0} - View account", account.Username);
+            Title = string.Format("{0} - View account", this.mAccount.Username);
 
-            if (account.ChampionList != null)
+            SortingBoxChamps.ItemsSource = new string[] { "Name", "Purchase Date", "With Skin(s)" };
+            SortingBoxChamps.SelectedIndex = 0;
+
+            var champsWithSkin = this.mAccount.ChampionList.Where(c => c.HasSkin == true).OrderBy(x => x.Name);
+
+            if (champsWithSkin.Any())
             {
-                ChampionsGrid.ItemsSource = account.ChampionList;
+                this.mChampsWithSkins = true;
+                FilterBoxSkins.ItemsSource = champsWithSkin;
+                FilterBoxSkins.DisplayMemberPath = "Name";
+                FilterBoxSkins.SelectedValuePath = "Id";
+                FilterBoxSkins.IsEnabled = true;
             }
 
-            if (account.SkinList != null)
+            if (this.mAccount.ChampionList != null)
             {
-                SkinsGrid.ItemsSource = account.SkinList;
+                ChampionsListBox.ItemsSource = this.mAccount.ChampionList.OrderBy(x => x.Name);
             }
 
-            if (account.Runes != null)
+            if (this.mAccount.SkinList != null)
             {
-                RunesGrid.ItemsSource = account.Runes;
+                SkinsListBox.ItemsSource = this.mAccount.SkinList;
+                ((CollectionView)CollectionViewSource.GetDefaultView(SkinsListBox.ItemsSource)).Filter = null;
             }
 
-            if (account.Transfers != null)
+            if (this.mAccount.Runes != null)
             {
-                TransfersGrid.ItemsSource = account.Transfers;
+                RunesGrid.ItemsSource = this.mAccount.Runes;
             }
+
+            if (this.mAccount.Transfers != null)
+            {
+                TransfersGrid.ItemsSource = this.mAccount.Transfers;
+            }
+        }
+
+        public bool ChampsWithSkins
+        {
+            get { return mChampsWithSkins; }
         }
 
         private void CmViewModel(object sender, RoutedEventArgs e)
         {
-            var selectedSkin = SkinsGrid.SelectedItem as SkinData;
+            SkinData selectedSkin = SkinsListBox.SelectedItem as SkinData;
 
             if (selectedSkin == null)
             {
@@ -68,9 +98,77 @@ namespace LoLAccountChecker.Views
             }
 
             Process.Start(
-                string.Format(
-                    "http://www.lolking.net/models/?champion={0}&skin={1}", selectedSkin.ChampionId,
-                    selectedSkin.Skin.Number - 1));
+                string.Format("http://www.lolking.net/models/?champion={0}&skin={1}", selectedSkin.ChampionId, selectedSkin.Skin.Num)
+            );
+        }
+
+        private void SortingBoxChamps_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+
+            CollectionView cv = (CollectionView)CollectionViewSource.GetDefaultView(ChampionsListBox.ItemsSource);
+
+            if (cv == null)
+            {
+                return;
+            }
+
+            using (cv.DeferRefresh())
+            {
+                int i = SortingBoxChamps.SelectedIndex;
+                switch (i)
+                {
+                    case 0:
+                        cv.SortDescriptions.Clear();
+                        cv.SortDescriptions.Add(new SortDescription("Name", ListSortDirection.Ascending));
+                        break;
+                    
+                    case 1:
+                        cv.SortDescriptions.Clear();
+                        cv.SortDescriptions.Add(new SortDescription("PurchaseDate", ListSortDirection.Ascending));
+                        break;
+                    
+                    case 2:
+                        if (this.mChampsWithSkins)
+                        {
+                            cv.SortDescriptions.Clear();
+                            cv.SortDescriptions.Add(new SortDescription("HasSkin", ListSortDirection.Descending));
+                            cv.SortDescriptions.Add(new SortDescription("Name", ListSortDirection.Ascending));
+                        }
+                        break;
+                    
+                    default:
+                        break;
+                }
+            }
+        }
+        private void FilterBoxSkins_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (FilterBoxSkins.SelectedIndex == -1)
+            {
+                return;
+            }
+
+            CollectionView cv = (CollectionView)CollectionViewSource.GetDefaultView(SkinsListBox.ItemsSource);
+            cv.Filter = (item) =>
+            {
+                SkinData skinData = item as SkinData;
+                if (skinData == null)
+                {
+                    return false;
+                }
+                return skinData.ChampionId == Int32.Parse(FilterBoxSkins.SelectedValue.ToString());
+            };
+
+            FilterCheckBoxSkins.IsChecked = true;
+            FilterCheckBoxSkins.IsEnabled = true;
+        }
+
+        private void FilterCheckBoxSkins_Click(object sender, RoutedEventArgs e)
+        {
+            ((CollectionView)CollectionViewSource.GetDefaultView(SkinsListBox.ItemsSource)).Filter = null;
+            FilterBoxSkins.SelectedIndex = -1;
+            FilterCheckBoxSkins.IsChecked = false;
+            FilterCheckBoxSkins.IsEnabled = false;
         }
     }
 }

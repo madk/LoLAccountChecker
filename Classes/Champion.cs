@@ -24,6 +24,7 @@ namespace LoLAccountChecker.Classes
     public class Champion
     {
         public int Id { get; set; }
+        public string StrId { get; set; }
         public string Name { get; set; }
         public Skin[] Skins { get; set; }
     }
@@ -32,6 +33,6 @@ namespace LoLAccountChecker.Classes
     {
         public int Id { get; set; }
         public string Name { get; set; }
-        public int Number { get; set; }
+        public int Num { get; set; }
     }
 }

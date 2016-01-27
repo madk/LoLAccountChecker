@@ -37,15 +37,11 @@ namespace LoLAccountChecker.Views
 {
     public partial class ExportWindow
     {
-        public static ExportWindow Instance;
-
         private readonly IEnumerable<Account> _accounts;
 
         public ExportWindow(IEnumerable<Account> accounts)
         {
             InitializeComponent();
-
-            Instance = this;
 
             _accounts = accounts;
 
@@ -61,12 +57,18 @@ namespace LoLAccountChecker.Views
         private void BtnSaveClick(object sender, RoutedEventArgs e)
         {
             if (!(sender is Button))
+            {
                 return;
+            }
+
             Button s = (Button)sender;
-            var sfd = new SaveFileDialog();
+
+            SaveFileDialog sfd = new SaveFileDialog();
+            sfd.FileName = "output";
+            sfd.Filter = "Text File (*.txt)|*.txt";
+
             if (s.Name == "save")
             {
-
                 if (sfd.ShowDialog() != true)
                 {
                     return;
@@ -199,7 +201,7 @@ namespace LoLAccountChecker.Views
             }
             else if (s.Name == "copy")
             {
-                Clipboard.SetText(sb.ToString());
+                Clipboard.SetDataObject(sb.ToString());
             }
 
             Close();

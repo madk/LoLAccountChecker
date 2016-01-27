@@ -43,9 +43,9 @@ namespace LoLAccountChecker.Classes
 
         public static JsonFormat Import(string file)
         {
-            using (var sr = new StreamReader(file))
+            using (StreamReader sr = new StreamReader(file))
             {
-                var jso = sr.ReadToEnd();
+                string jso = sr.ReadToEnd();
 
                 return JsonConvert.DeserializeObject<JsonFormat>(jso);
             }
@@ -53,9 +53,9 @@ namespace LoLAccountChecker.Classes
 
         public static void Export(string file, List<Account> accounts)
         {
-            using (var sw = new StreamWriter(file))
+            using (StreamWriter sw = new StreamWriter(file))
             {
-                var jso = JsonConvert.SerializeObject(new JsonFormat(accounts));
+                string jso = JsonConvert.SerializeObject(new JsonFormat(accounts));
 
                 sw.WriteLine(jso);
             }

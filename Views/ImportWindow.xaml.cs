@@ -35,9 +35,9 @@ namespace LoLAccountChecker.Views
 {
     public partial class ImportWindow
     {
-        private readonly List<Account> _accounts;
+        private readonly List<string[]> _accounts;
 
-        public ImportWindow(List<Account> accounts)
+        public ImportWindow(List<string[]> accounts)
         {
             InitializeComponent();
 
@@ -55,13 +55,26 @@ namespace LoLAccountChecker.Views
 
         private void BtnImportClick(object sender, RoutedEventArgs e)
         {
-            foreach (var account in _accounts.Where(a => Checker.Accounts.All(aa => aa.Username != a.Username)))
+            foreach (string[] account in _accounts.Where(a => Checker.Accounts.All(aa => aa.Username.ToLower() != a[0].ToLower())))
             {
-                Checker.Accounts.Add(account);
+                Region region;
+                if (account.Count() < 3 || !Enum.TryParse(account[2], true, out region))
+                {
+                    region = Settings.Config.SelectedRegion;
+                }
+
+                var loginData = new Account
+                {
+                    Username = account[0],
+                    Password = account[1],
+                    State = Account.Result.Unchecked,
+                    Region = region
+                };
+
+                Checker.Accounts.Add(loginData);
             }
             
             MainWindow.Instance.UpdateControls();
-            AccountsWindow.Instance.RefreshAccounts();
             
             Close();
         }

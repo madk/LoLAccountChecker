@@ -30,6 +30,9 @@ using System.Windows;
 using LoLAccountChecker.Classes;
 using MahApps.Metro.Controls.Dialogs;
 using Microsoft.Win32;
+using System.Windows.Input;
+using System.Windows.Controls;
+using System.Windows.Data;
 
 #endregion
 
@@ -38,6 +41,7 @@ namespace LoLAccountChecker.Views
     public partial class MainWindow
     {
         public static MainWindow Instance;
+        public bool IsSearchActive;
 
         public MainWindow()
         {
@@ -45,7 +49,9 @@ namespace LoLAccountChecker.Views
 
             Instance = this;
 
-            AccountsDataGrid.ItemsSource = Checker.Accounts.Where(a => a.State == Account.Result.Success);
+            IsSearchActive = false;
+
+            AccountsDataGrid.PreviewKeyDown += Common.AccountsDataGrid_SearchByLetterKey;
 
             Loaded += WindowLoaded;
             Closed += WindowClosed;
@@ -54,7 +60,6 @@ namespace LoLAccountChecker.Views
         private async void WindowLoaded(object sender, RoutedEventArgs e)
         {
             await LeagueData.Load();
-            await Utils.UpdateClientVersion();
         }
 
         private void WindowClosed(object sender, EventArgs e)
@@ -71,19 +76,17 @@ namespace LoLAccountChecker.Views
                 return;
             }
 
+            ClearSearch();
+
             var numCheckedAcccounts = Checker.Accounts.Count(a => a.State != Account.Result.Unchecked);
 
-            // Progress Bar
             ProgressBar.Value = Checker.Accounts.Any() ? ((numCheckedAcccounts * 100f) / Checker.Accounts.Count()) : 0;
 
-            // Export Button
             ExportButton.IsEnabled = numCheckedAcccounts > 0;
-
-            // Start Button
             StartButton.IsEnabled = numCheckedAcccounts < Checker.Accounts.Count;
             StartButton.Content = Checker.IsChecking ? "Stop" : "Start";
+            SearchButton.IsEnabled = numCheckedAcccounts > 0;
 
-            // Status Label
             if (Checker.IsChecking)
             {
                 StatusLabel.Content = "Status: Checking...";
@@ -93,11 +96,14 @@ namespace LoLAccountChecker.Views
                 StatusLabel.Content = "Status: Finished!";
             }
 
-            // Checked Accounts Label
             CheckedLabel.Content = string.Format("Checked: {0}/{1}", numCheckedAcccounts, Checker.Accounts.Count);
 
-            // Grid
             AccountsDataGrid.ItemsSource = Checker.Accounts.Where(a => a.State == Account.Result.Success);
+
+            if (AccountsWindow.Instance != null)
+            {
+                AccountsWindow.Instance.UpdateControls();
+            }
         }
 
         public void UpdateProgressBar(double value)
@@ -118,135 +124,106 @@ namespace LoLAccountChecker.Views
 
         #region Right Window Commands
 
+        private void BtnUpdateClick(object sender, RoutedEventArgs e)
+        {
+
+        }
+
         private void BtnDonateClick(object sender, RoutedEventArgs e)
         {
-            Process.Start("https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=CHEV6LWPMHUMW");
+            Process.Start("https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=X9559SH2MKQ7S");
         }
 
         private void BtnGithubClick(object sender, RoutedEventArgs e)
         {
-            Process.Start("https://github.com/madk/LoLAccountChecker");
-        }
-
-        private async void BtnRefreshClick(object sender, RoutedEventArgs e)
-        {
-            if (Checker.IsChecking)
-            {
-                await this.ShowMessageAsync("Error", "Please wait for the checking process to be completed.");
-                return;
-            }
-
-            if (!Checker.Accounts.Any())
-            {
-                await this.ShowMessageAsync("Error", "You don't have any accounts.");
-                return;
-            }
-
-            if (Checker.Accounts.Any(a => a.State == Account.Result.Error))
-            {
-                var dialog =
-                    await
-                        this.ShowMessageAsync(
-                            "Refresh", "Do you want to refresh accounts with Errors?",
-                            MessageDialogStyle.AffirmativeAndNegative);
-
-                Checker.Refresh(dialog == MessageDialogResult.Affirmative);
-                return;
-            }
-
-            Checker.Refresh();
+            Process.Start("https://github.com/yokrysty/LoLAccountChecker");
         }
 
         #endregion
 
-        #region Import Button
+        #region Buttons
 
         private async void BtnImportClick(object sender, RoutedEventArgs e)
         {
-            var ofd = new OpenFileDialog();
-
+            OpenFileDialog ofd = new OpenFileDialog();
             ofd.Filter = "JavaScript Object Notation (*.json)|*.json";
 
-            var result = ofd.ShowDialog();
-
-            if (result == true)
+            if (ofd.ShowDialog() != true)
             {
-                var file = ofd.FileName;
-                if (!File.Exists(file))
-                {
-                    return;
-                }
-
-                var jsonformat = JsonFormat.Import(file);
-
-                if (jsonformat == null)
-                {
-                    await
-                        this.ShowMessageAsync(
-                            "Error", "Unable to load JSON file, it might be corrupted or from an old version.");
-                    return;
-                }
-
-                var importedVer = Version.Parse(jsonformat.Version);
-                var currentVer = Assembly.GetExecutingAssembly().GetName().Version;
-
-                if (importedVer != currentVer)
-                {
-                    var msg =
-                        await
-                            this.ShowMessageAsync(
-                                "Warning",
-                                string.Format(
-                                    "The file you are importing is from a {0} version. " +
-                                    "Some functions might not might not work, do you still want to load it?",
-                                    importedVer < currentVer ? "old" : "new"), MessageDialogStyle.AffirmativeAndNegative);
-
-                    if (msg == MessageDialogResult.Negative)
-                    {
-                        return;
-                    }
-                }
-
-                var count = 0;
-                foreach (var account in jsonformat.Accounts)
-                {
-                    if (!Checker.Accounts.Exists(a => a.Username == account.Username))
-                    {
-                        Checker.Accounts.Add(account);
-                        count++;
-                    }
-                }
-
-                UpdateControls();
-
-                await
-                    this.ShowMessageAsync(
-                        "Import", count > 0 ? string.Format("Imported {0} accounts.", count) : "No new accounts found.");
+                return;
             }
+
+            string file = ofd.FileName;
+            if (!File.Exists(file))
+            {
+                return;
+            }
+
+            var jsonformat = JsonFormat.Import(file);
+
+            if (jsonformat == null)
+            {
+                await this.ShowMessageAsync("Error", "Unable to load JSON file, it might be corrupted or from an old version.");
+                return;
+            }
+
+            var importedVer = Version.Parse(jsonformat.Version);
+            var currentVer = Assembly.GetExecutingAssembly().GetName().Version;
+
+            if (importedVer != currentVer)
+            {
+                var msg = await this.ShowMessageAsync(
+                            "Warning",
+                            string.Format(
+                                "The file you are importing is from a {0} version. " +
+                                "Some functions might not might not work, do you still want to load it?",
+                                importedVer < currentVer ? "old" : "new"), MessageDialogStyle.AffirmativeAndNegative);
+
+                if (msg == MessageDialogResult.Negative)
+                {
+                    return;
+                }
+            }
+
+            int count = 0;
+            foreach (Account account in jsonformat.Accounts)
+            {
+                if (!Checker.Accounts.Exists(a => a.Username.ToLower() == account.Username.ToLower()))
+                {
+                    foreach (ChampionData champion in account.ChampionList)
+                    {
+                        SkinData skin = account.SkinList.FirstOrDefault(c => c.ChampionId == champion.Id);
+
+                        champion.HasSkin = (skin != null) ? true : false;
+                    }
+
+                    Checker.Accounts.Add(account);
+                    count++;
+                }
+            }
+
+            if (count > 0)
+            {
+                UpdateControls();
+                AccountsDataGrid.Focus();
+                return;
+            }
+
+            await this.ShowMessageAsync("Import", "No new accounts found.");
         }
-
-        #endregion
-
-        #region Export Button
 
         private void BtnExportToFileClick(object sender, RoutedEventArgs e)
         {
-            var sfd = new SaveFileDialog();
+            SaveFileDialog sfd = new SaveFileDialog();
             sfd.FileName = "output";
             sfd.Filter = "JavaScript Object Notation (*.json)|*.json";
 
             if (sfd.ShowDialog() == true)
             {
-                var file = sfd.FileName;
-
-                JsonFormat.Export(file, Checker.Accounts.Where(a => a.State == Account.Result.Success).ToList());
+                JsonFormat.Export(sfd.FileName, Checker.Accounts.Where(a => a.State == Account.Result.Success).ToList());
                 this.ShowMessageAsync("Export", string.Format("Exported {0} accounts.", Checker.Accounts.Count));
             }
         }
-
-        #endregion
-
-        #region Accounts Button
 
         private void BtnAccountsClick(object sender, RoutedEventArgs e)
         {
@@ -254,17 +231,17 @@ namespace LoLAccountChecker.Views
             {
                 AccountsWindow.Instance = new AccountsWindow();
                 AccountsWindow.Instance.Show();
-                AccountsWindow.Instance.Closed += (o, a) => { AccountsWindow.Instance = null; };
+                return;
             }
-            else if (AccountsWindow.Instance != null && !AccountsWindow.Instance.IsActive)
+            
+            if (AccountsWindow.Instance.WindowState == WindowState.Minimized)
             {
-                AccountsWindow.Instance.Activate();
+                AccountsWindow.Instance.WindowState = WindowState.Normal;
+                return;
             }
+            
+            AccountsWindow.Instance.Activate();
         }
-
-        #endregion
-
-        #region Start Button
 
         private void BtnStartCheckingClick(object sender, RoutedEventArgs e)
         {
@@ -288,70 +265,98 @@ namespace LoLAccountChecker.Views
             Checker.Start();
         }
 
+        private void BtnSearchClick(object sender, RoutedEventArgs e)
+        {
+            if (IsSearchActive)
+            {
+                ClearSearch();
+                return;
+            }
+
+            SearchWindow sw = new SearchWindow();
+            sw.ShowDialog();
+        }
+
         #endregion
 
         #region Context Menu
 
         private void CmCopyUsername(object sender, RoutedEventArgs routedEventArgs)
         {
-            var account = AccountsDataGrid.SelectedItem as Account;
-
-            if (account == null)
+            if (AccountsDataGrid.SelectedItem == null)
             {
                 return;
             }
 
-            Clipboard.SetText(account.Username);
-            this.ShowMessageAsync("Copy Username", "Username has been copied to your clipboard.");
+            Clipboard.SetDataObject(((Account)AccountsDataGrid.SelectedItem).Username);
         }
 
         private void CmCopyPassword(object sender, RoutedEventArgs routedEventArgs)
-        {
-            var account = AccountsDataGrid.SelectedItem as Account;
-
-            if (account == null)
-            {
-                return;
-            }
-
-            Clipboard.SetText(account.Password);
-            this.ShowMessageAsync("Copy Password", "Password has been copied to your clipboard.");
-        }
-
-        private void CmCopyCombo(object sender, RoutedEventArgs e)
-        {
-            var account = AccountsDataGrid.SelectedItem as Account;
-
-            if (account == null)
-            {
-                return;
-            }
-
-            var combo = string.Format("{0}:{1}", account.Username, account.Password);
-            Clipboard.SetText(combo);
-        }
-
-        private void CmViewAccount(object sender, RoutedEventArgs e)
-        {
-            var account = AccountsDataGrid.SelectedItem as Account;
-
-            if (account == null)
-            {
-                return;
-            }
-
-            var window = new AccountWindow(account);
-            window.Show();
-        }
-
-        private void CmExportJson(object sender, RoutedEventArgs e)
         {
             if (AccountsDataGrid.SelectedItem == null)
             {
                 return;
             }
 
-            var sfd = new SaveFileDialog();
+            Clipboard.SetDataObject(((Account)AccountsDataGrid.SelectedItem).Password);
+        }
+
+        private void CmCopyCombo(object sender, RoutedEventArgs e)
+        {
+            Common.CopyCombo(AccountsDataGrid);
+        }
+
+        private void CmCopySummoner(object sender, RoutedEventArgs e)
+        {
+            if (AccountsDataGrid.SelectedItem == null)
+            {
+                return;
+            }
+
+            Clipboard.SetDataObject(((Account)AccountsDataGrid.SelectedItem).Summoner);
+        }
+
+        private void ViewAccount(object selectedItem)
+        {
+            if (AccountsDataGrid.SelectedItem == null)
+            {
+                return;
+            }
+
+            AccountWindow window = new AccountWindow((Account)AccountsDataGrid.SelectedItem);
+            window.Show();
+        }
+
+        private void CmViewAccount(object sender, RoutedEventArgs e)
+        {
+            if (AccountsDataGrid.SelectedItem == null)
+            {
+                return;
+            }
+
+            this.ViewAccount(AccountsDataGrid.SelectedItem);
+        }
+
+        private void Row_DoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            DataGridRow row = ItemsControl.ContainerFromElement((DataGrid)sender, e.OriginalSource as DependencyObject) as DataGridRow;
+
+            if (row == null)
+            {
+                return;
+            }
+            
+            this.ViewAccount(row.Item);
+        }
+
+        private void CmExportJson(object sender, RoutedEventArgs e)
+        {
+            if (AccountsDataGrid.SelectedItems.Count == 0)
+            {
+                return;
+            }
+
+            SaveFileDialog sfd = new SaveFileDialog();
             sfd.FileName = "output";
             sfd.Filter = "JavaScript Object Notation (*.json)|*.json";
 
@@ -368,16 +373,32 @@ namespace LoLAccountChecker.Views
 
         private void CmExportCustom(object sender, RoutedEventArgs e)
         {
-            if (AccountsDataGrid.SelectedItem == null)
+            if (AccountsDataGrid.SelectedItems.Count == 0)
             {
                 return;
             }
 
             var accounts = AccountsDataGrid.SelectedItems.Cast<Account>();
-            var window = new ExportWindow(accounts);
+            ExportWindow window = new ExportWindow(accounts);
             window.ShowDialog();
         }
 
         #endregion
+
+        public void ClearSearch()
+        {
+            if (!IsSearchActive)
+            {
+                return;
+            }
+
+            CollectionView cv = (CollectionView)CollectionViewSource.GetDefaultView(AccountsDataGrid.ItemsSource);
+            if (cv != null)
+            {
+                cv.Filter = null;
+            }
+            SearchButton.Content = "Search";
+            IsSearchActive = false;
+        }
     }
 }

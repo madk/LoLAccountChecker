@@ -22,6 +22,7 @@
 #region
 
 using Newtonsoft.Json;
+using System.Windows.Media.Imaging;
 
 #endregion
 
@@ -35,15 +36,42 @@ namespace LoLAccountChecker.Classes
         public bool StillObtainable { get; set; }
 
         [JsonIgnore]
+        public string Obtainable
+        { 
+            get { return this.StillObtainable == true ? "Yes" : "No"; }
+        }
+
+        [JsonIgnore]
         public Champion Champion
         {
-            get { return LeagueData.GetChampion(ChampionId); }
+            get { return LeagueData.GetChampion(this.ChampionId);}
         }
 
         [JsonIgnore]
         public Skin Skin
         {
-            get { return LeagueData.GetSkin(Champion, Id); }
+            get { return LeagueData.GetSkin(this.Champion, this.Id); }
+        }
+
+        [JsonIgnore]
+        public string ImageUrl
+        {
+            get
+            {
+                try
+                {
+                    string champId = this.Champion.StrId;
+                    string skinId = this.Skin.Num.ToString();
+
+                    string url = string.Format("http://ddragon.leagueoflegends.com/cdn/img/champion/loading/{0}_{1}.jpg", champId, skinId);
+
+                    return url;
+                }
+                catch
+                {
+                    return null;
+                }
+            }
         }
     }
 }

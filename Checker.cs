@@ -32,19 +32,18 @@ using LoLAccountChecker.Views;
 
 namespace LoLAccountChecker
 {
-    internal delegate void NewAccount(Account accout);
+    internal delegate void NewAccount(Account account);
 
     internal static class Checker
     {
+        public static List<Account> Accounts { get; set; }
+        public static bool IsChecking { get; private set; }
+
         static Checker()
         {
             Accounts = new List<Account>();
             IsChecking = false;
         }
-
-        public static List<Account> Accounts { get; set; }
-        public static bool IsChecking { get; private set; }
-
         public static void Start()
         {
             if (IsChecking)
@@ -54,7 +53,7 @@ namespace LoLAccountChecker
 
             IsChecking = true;
 
-            var thread = new Thread(Handler)
+            Thread thread = new Thread(Handler)
             {
                 IsBackground = true
             };
@@ -75,7 +74,7 @@ namespace LoLAccountChecker
 
             if (AccountsWindow.Instance != null)
             {
-                AccountsWindow.Instance.RefreshAccounts();
+                AccountsWindow.Instance.UpdateControls();
             }
         }
 
@@ -88,7 +87,7 @@ namespace LoLAccountChecker
 
             IsChecking = true;
 
-            foreach (var account in Accounts.Where(a => a.State == Account.Result.Success || e))
+            foreach (Account account in Accounts.Where(a => a.State == Account.Result.Success || e))
             {
                 account.State = Account.Result.Unchecked;
             }
@@ -104,21 +103,21 @@ namespace LoLAccountChecker
                 {
                     break;
                 }
-                var account = Accounts.FirstOrDefault(a => a.State == Account.Result.Unchecked);
+                Account account = Accounts.FirstOrDefault(a => a.State == Account.Result.Unchecked);
 
                 if (account == null)
                 {
                     continue;
                 }
 
-                var i = Accounts.FindIndex(a => a.Username == account.Username);
+                int i = Accounts.FindIndex(a => a.Username == account.Username);
                 Accounts[i] = await CheckAccount(account);
 
                 MainWindow.Instance.UpdateControls();
 
                 if (AccountsWindow.Instance != null)
                 {
-                    AccountsWindow.Instance.RefreshAccounts();
+                    AccountsWindow.Instance.UpdateControls();
                 }
             }
 
@@ -127,7 +126,7 @@ namespace LoLAccountChecker
 
         public static async Task<Account> CheckAccount(Account account)
         {
-            var client = new Client(account.Region, account.Username, account.Password);
+            Client client = new Client(account.Region, account.Username, account.Password);
 
             await client.IsCompleted.Task;
 

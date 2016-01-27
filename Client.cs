@@ -120,7 +120,6 @@ namespace LoLAccountChecker
                     Data.EmailStatus = "Unknown";
                 }
 
-                // Leagues
                 if (Data.Level == 30)
                 {
                     var myLeagues = await Connection.GetMyLeaguePositions();
@@ -136,7 +135,6 @@ namespace LoLAccountChecker
                     Data.SoloQRank = "Unranked";
                 }
 
-                // Last Play
                 var recentGames = await Connection.GetRecentGames(loginPacket.AllSummonerData.Summoner.AcctId);
                 var lastGame = recentGames.GameStatistics.FirstOrDefault();
 
@@ -162,28 +160,25 @@ namespace LoLAccountChecker
         {
             Data.Transfers = new List<TransferData>();
 
-            // Regex
-            var regexTransfers = new Regex("\\\'account_transfer(.*)\\\'\\)", RegexOptions.Multiline);
-            var regexTransferData = new Regex("rp_cost\\\":(.*?),(?:.*)name\\\":\\\"(.*?)\\\"");
-            var regexRefunds = new Regex("credit_counter\\\">(\\d[1-3]?)<");
-            var regexRegion = new Regex("\\.(.*?)\\.");
+            Regex regexTransfers = new Regex("\\\'account_transfer(.*)\\\'\\)", RegexOptions.Multiline);
+            Regex regexTransferData = new Regex("rp_cost\\\":(.*?),(?:.*)name\\\":\\\"(.*?)\\\"");
+            Regex regexRefunds = new Regex("credit_counter\\\">(\\d[1-3]?)<");
+            Regex regexRegion = new Regex("\\.(.*?)\\.");
 
             var storeUrl = await Connection.GetStoreUrl();
 
             var region = regexRegion.Match(storeUrl).Groups[1];
 
-            var storeUrlMisc = string.Format("https://store.{0}.lol.riotgames.com/store/tabs/view/misc", region);
-            var storeUrlHist = string.Format(
-                "https://store.{0}.lol.riotgames.com/store/accounts/rental_history", region);
+            string storeUrlMisc = string.Format("https://store.{0}.lol.riotgames.com/store/tabs/view/misc", region);
+            string storeUrlHist = string.Format("https://store.{0}.lol.riotgames.com/store/accounts/rental_history", region);
 
-            var cookies = new CookieContainer();
+            CookieContainer cookies = new CookieContainer();
 
             Utils.GetHtmlResponse(storeUrl, cookies);
 
-            var miscHtml = Utils.GetHtmlResponse(storeUrlMisc, cookies);
-            var histHtml = Utils.GetHtmlResponse(storeUrlHist, cookies);
+            string miscHtml = Utils.GetHtmlResponse(storeUrlMisc, cookies);
+            string histHtml = Utils.GetHtmlResponse(storeUrlHist, cookies);
 
-            // Transfers
             foreach (Match match in regexTransfers.Matches(miscHtml))
             {
                 var data = regexTransferData.Matches(match.Value);
@@ -197,7 +192,6 @@ namespace LoLAccountChecker
                 Data.Transfers.Add(transfer);
             }
 
-            // Refunds credits
             if (regexRefunds.IsMatch(histHtml))
             {
                 Data.Refunds = Int32.Parse(regexRefunds.Match(histHtml).Groups[1].Value);
@@ -213,7 +207,7 @@ namespace LoLAccountChecker
 
             foreach (var champion in champions)
             {
-                var championData = LeagueData.Champions.FirstOrDefault(c => c.Id == champion.ChampionId);
+                Champion championData = LeagueData.Champions.FirstOrDefault(c => c.Id == champion.ChampionId);
 
                 if (championData == null)
                 {
@@ -228,14 +222,13 @@ namespace LoLAccountChecker
                             Id = championData.Id,
                             Name = championData.Name,
                             PurchaseDate =
-                                new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(
-                                    Math.Round(champion.PurchaseDate / 1000d))
+                                new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(Math.Round(champion.PurchaseDate / 1000d)),
                         });
                 }
 
                 foreach (var skin in champion.ChampionSkins.Where(skin => skin.Owned))
                 {
-                    var skinData = championData.Skins.FirstOrDefault(s => s.Id == skin.SkinId);
+                    Skin skinData = championData.Skins.FirstOrDefault(s => s.Id == skin.SkinId);
 
                     if (skinData == null)
                     {
@@ -250,6 +243,13 @@ namespace LoLAccountChecker
                             StillObtainable = skin.StillObtainable,
                             ChampionId = championData.Id
                         });
+                }
+
+                foreach (ChampionData champ in Data.ChampionList)
+                {
+                    SkinData skin = Data.SkinList.FirstOrDefault(c => c.ChampionId == champ.Id);
+
+                    champ.HasSkin = (skin != null) ? true : false;
                 }
             }
         }

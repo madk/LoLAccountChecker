@@ -49,7 +49,6 @@ namespace LoLAccountChecker
                 Save();
                 return;
             }
-
             Load();
         }
 
@@ -59,7 +58,7 @@ namespace LoLAccountChecker
 
         public static void Save()
         {
-            using (var sw = new StreamWriter(_file))
+            using (StreamWriter sw = new StreamWriter(_file))
             {
                 sw.Write(JsonConvert.SerializeObject(Config, Formatting.Indented));
             }
@@ -67,7 +66,7 @@ namespace LoLAccountChecker
 
         public static void Load()
         {
-            using (var sr = new StreamReader(_file))
+            using (StreamReader sr = new StreamReader(_file))
             {
                 Config = JsonConvert.DeserializeObject<Settings>(sr.ReadToEnd());
             }
