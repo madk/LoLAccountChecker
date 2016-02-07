@@ -1,13 +1,15 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace LoLAccountChecker.Classes
 {
-    class Common
+    static class Common
     {
         public static void CopyCombo(DataGrid accountsDataGrid)
         {
@@ -99,6 +101,51 @@ namespace LoLAccountChecker.Classes
             }
 
             return -1;
+        }
+
+        public static IEnumerable<DependencyObject> GetChildObjects(DependencyObject parent)
+        {
+            if (parent == null)
+            {
+                yield break;
+            }
+            if (parent is ContentElement || parent is FrameworkElement)
+            {
+                foreach (object obj in LogicalTreeHelper.GetChildren(parent))
+                {
+                    var depObj = obj as DependencyObject;
+                    if (depObj != null)
+                    {
+                        yield return (DependencyObject)obj;
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+                {
+                    yield return VisualTreeHelper.GetChild(parent, i);
+                }
+            }
+        }
+
+        public static IEnumerable<T> FindChildren<T>(DependencyObject parent) where T : DependencyObject
+        {
+            if(parent == null)
+            {
+                yield break;
+            }
+            foreach (DependencyObject child in GetChildObjects(parent))
+            {
+                if (child != null && child is T)
+                {
+                    yield return (T)child;
+                }
+                foreach (T descendant in FindChildren<T>(child))
+                {
+                    yield return descendant;
+                }
+            }
         }
     }
 }

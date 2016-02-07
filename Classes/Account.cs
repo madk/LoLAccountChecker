@@ -41,6 +41,7 @@ namespace LoLAccountChecker.Classes
 
         public string Username { get; set; }
         public string Password { get; set; }
+        public int SummonerId { get; set; }
         public string Summoner { get; set; }
         public int Level { get; set; }
         public string EmailStatus { get; set; }

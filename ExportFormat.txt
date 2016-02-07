@@ -1,0 +1,15 @@
+Username: %USERNAME%
+Password: %PASSWORD%
+
+Summoner: %SUMMONERNAME%
+Region: %REGION%
+Level: %LEVEL%
+Rank: %RANK%
+Champions: %CHAMPIONS%
+Skins: %SKINS%
+Rune Pages: %RUNEPAGES%
+RP: %RP%
+IP: %IP%
+Email: %EMAILSTATUS%
+
+----------------------------------------------------

@@ -334,7 +334,7 @@ namespace LoLAccountChecker.Views
                 return;
             }
 
-            this.ViewAccount(AccountsDataGrid.SelectedItem);
+            ViewAccount(AccountsDataGrid.SelectedItem);
         }
 
         private void Row_DoubleClick(object sender, MouseButtonEventArgs e)
@@ -345,8 +345,8 @@ namespace LoLAccountChecker.Views
             {
                 return;
             }
-            
-            this.ViewAccount(row.Item);
+
+            ViewAccount(row.Item);
         }
 
         private void CmExportJson(object sender, RoutedEventArgs e)

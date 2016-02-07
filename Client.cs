@@ -36,7 +36,7 @@ namespace LoLAccountChecker
 {
     public class Client
     {
-        public PVPNetConnection Connection;
+        private PVPNetConnection pvpnet;
         public Account Data;
 
         public TaskCompletionSource<bool> IsCompleted;
@@ -53,21 +53,20 @@ namespace LoLAccountChecker
 
             IsCompleted = new TaskCompletionSource<bool>();
 
-            Connection = new PVPNetConnection();
-            Connection.OnLogin += OnLogin;
-            Connection.OnError += OnError;
+            pvpnet = new PVPNetConnection();
+            pvpnet.OnLogin += OnLogin;
+            pvpnet.OnError += OnError;
 
-            Connection.Connect(username, password, region, Settings.Config.ClientVersion);
+            pvpnet.Connect(username, password, region, Settings.Config.ClientVersion);
         }
 
         public void Disconnect()
         {
-            if (!Connection.IsConnected())
+            if (!pvpnet.IsConnected())
             {
                 return;
             }
-
-            Connection.Disconnect();
+            pvpnet.Disconnect();
         }
 
         private void OnLogin(object sender, string username, string ipAddress)
@@ -78,9 +77,7 @@ namespace LoLAccountChecker
         private void OnError(object sender, Error error)
         {
             Data.ErrorMessage = error.Message;
-
             Data.State = Account.Result.Error;
-
             IsCompleted.TrySetResult(true);
         }
 
@@ -88,7 +85,7 @@ namespace LoLAccountChecker
         {
             try
             {
-                var loginPacket = await Connection.GetLoginDataPacketForUser();
+                var loginPacket = await pvpnet.GetLoginDataPacketForUser();
 
                 if (loginPacket.AllSummonerData == null)
                 {
@@ -101,10 +98,10 @@ namespace LoLAccountChecker
 
                 await GetChampions();
                 await GetStoreData();
-
-                GetRunes(loginPacket.AllSummonerData.Summoner.SumId);
+                await GetRunes(loginPacket.AllSummonerData.Summoner.SumId);
 
                 Data.Summoner = loginPacket.AllSummonerData.Summoner.Name;
+                Data.SummonerId = (int)loginPacket.AllSummonerData.Summoner.SumId;
                 Data.Level = (int) loginPacket.AllSummonerData.SummonerLevel.Level;
                 Data.RpBalance = (int) loginPacket.RpBalance;
                 Data.IpBalance = (int) loginPacket.IpBalance;
@@ -113,7 +110,7 @@ namespace LoLAccountChecker
                 if (loginPacket.EmailStatus != null)
                 {
                     var emailStatus = loginPacket.EmailStatus.Replace('_', ' ');
-                    Data.EmailStatus = Char.ToUpper(emailStatus[0]) + emailStatus.Substring(1);
+                    Data.EmailStatus = char.ToUpper(emailStatus[0]) + emailStatus.Substring(1);
                 }
                 else
                 {
@@ -122,7 +119,7 @@ namespace LoLAccountChecker
 
                 if (Data.Level == 30)
                 {
-                    var myLeagues = await Connection.GetMyLeaguePositions();
+                    var myLeagues = await pvpnet.GetMyLeaguePositions();
                     var soloqLeague = myLeagues.SummonerLeagues.FirstOrDefault(l => l.QueueType == "RANKED_SOLO_5x5");
                     Data.SoloQRank = soloqLeague != null
                         ? string.Format(
@@ -135,7 +132,7 @@ namespace LoLAccountChecker
                     Data.SoloQRank = "Unranked";
                 }
 
-                var recentGames = await Connection.GetRecentGames(loginPacket.AllSummonerData.Summoner.AcctId);
+                var recentGames = await pvpnet.GetRecentGames(loginPacket.AllSummonerData.Summoner.AcctId);
                 var lastGame = recentGames.GameStatistics.FirstOrDefault();
 
                 if (lastGame != null)
@@ -165,7 +162,7 @@ namespace LoLAccountChecker
             Regex regexRefunds = new Regex("credit_counter\\\">(\\d[1-3]?)<");
             Regex regexRegion = new Regex("\\.(.*?)\\.");
 
-            var storeUrl = await Connection.GetStoreUrl();
+            var storeUrl = await pvpnet.GetStoreUrl();
 
             var region = regexRegion.Match(storeUrl).Groups[1];
 
@@ -185,7 +182,7 @@ namespace LoLAccountChecker
 
                 var transfer = new TransferData
                 {
-                    Price = Int32.Parse(data[0].Groups[1].Value.Replace("\"", "")),
+                    Price = int.Parse(data[0].Groups[1].Value.Replace("\"", "")),
                     Name = data[0].Groups[2].Value
                 };
 
@@ -194,13 +191,13 @@ namespace LoLAccountChecker
 
             if (regexRefunds.IsMatch(histHtml))
             {
-                Data.Refunds = Int32.Parse(regexRefunds.Match(histHtml).Groups[1].Value);
+                Data.Refunds = int.Parse(regexRefunds.Match(histHtml).Groups[1].Value);
             }
         }
 
         private async Task GetChampions()
         {
-            var champions = await Connection.GetAvailableChampions();
+            var champions = await pvpnet.GetAvailableChampions();
 
             Data.ChampionList = new List<ChampionData>();
             Data.SkinList = new List<SkinData>();
@@ -216,14 +213,12 @@ namespace LoLAccountChecker
 
                 if (champion.Owned)
                 {
-                    Data.ChampionList.Add(
-                        new ChampionData
-                        {
-                            Id = championData.Id,
-                            Name = championData.Name,
-                            PurchaseDate =
-                                new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(Math.Round(champion.PurchaseDate / 1000d)),
-                        });
+                    Data.ChampionList.Add(new ChampionData
+                    {
+                        Id = championData.Id,
+                        Name = championData.Name,
+                        PurchaseDate = new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(Math.Round(champion.PurchaseDate / 1000d)),
+                    });
                 }
 
                 foreach (var skin in champion.ChampionSkins.Where(skin => skin.Owned))
@@ -235,14 +230,13 @@ namespace LoLAccountChecker
                         continue;
                     }
 
-                    Data.SkinList.Add(
-                        new SkinData
-                        {
-                            Id = skinData.Id,
-                            Name = skinData.Name,
-                            StillObtainable = skin.StillObtainable,
-                            ChampionId = championData.Id
-                        });
+                    Data.SkinList.Add(new SkinData
+                    {
+                        Id = skinData.Id,
+                        Name = skinData.Name,
+                        StillObtainable = skin.StillObtainable,
+                        ChampionId = championData.Id
+                    });
                 }
 
                 foreach (ChampionData champ in Data.ChampionList)
@@ -254,32 +248,33 @@ namespace LoLAccountChecker
             }
         }
 
-        private async void GetRunes(double summmonerId)
+        private async Task GetRunes(double summmonerId)
         {
             Data.Runes = new List<RuneData>();
 
-            var runes = await Connection.GetSummonerRuneInventory(summmonerId);
-            if (runes != null)
+            var runes = await pvpnet.GetSummonerRuneInventory(summmonerId);
+
+            if(runes == null)
             {
-                foreach (var rune in runes.SummonerRunes)
+                return;
+            }
+
+            foreach (var rune in runes.SummonerRunes)
+            {
+                var runeData = LeagueData.Runes.FirstOrDefault(r => r.Id == rune.RuneId);
+
+                if (runeData == null)
                 {
-                    var runeData = LeagueData.Runes.FirstOrDefault(r => r.Id == rune.RuneId);
-
-                    if (runeData == null)
-                    {
-                        continue;
-                    }
-
-                    var rn = new RuneData
-                    {
-                        Name = runeData.Name,
-                        Description = runeData.Description,
-                        Quantity = rune.Quantity,
-                        Tier = runeData.Tier
-                    };
-
-                    Data.Runes.Add(rn);
+                    continue;
                 }
+
+                Data.Runes.Add(new RuneData
+                {
+                    Name = runeData.Name,
+                    Description = runeData.Description,
+                    Quantity = rune.Quantity,
+                    Tier = runeData.Tier
+                });
             }
         }
     }

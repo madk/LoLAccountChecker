@@ -30,6 +30,7 @@ using System.Windows;
 using System.Windows.Controls;
 using LoLAccountChecker.Classes;
 using Microsoft.Win32;
+using MahApps.Metro.Controls.Dialogs;
 
 #endregion
 
@@ -54,7 +55,7 @@ namespace LoLAccountChecker.Views
             }
         }
 
-        private void BtnSaveClick(object sender, RoutedEventArgs e)
+        private async void BtnSaveClick(object sender, RoutedEventArgs e)
         {
             if (!(sender is Button))
             {
@@ -106,7 +107,7 @@ namespace LoLAccountChecker.Views
 
                         cFormat = cFormat.Replace("%ID%", champion.Id.ToString());
                         cFormat = cFormat.Replace("%NAME%", champion.Name);
-                        cFormat = cFormat.Replace("%PUCHASEDATE%", champion.PurchaseDate.ToString());
+                        cFormat = cFormat.Replace("%PURCHASEDATE%", champion.PurchaseDate.ToString());
 
                         clSb.Append(cFormat);
                     }
@@ -149,7 +150,7 @@ namespace LoLAccountChecker.Views
                 {
                     var rlSb = new StringBuilder();
 
-                    var rlFormat = skinListRegex.Matches(format)[0];
+                    var rlFormat = runeListRegex.Matches(format)[0];
 
                     foreach (var rune in account.Runes)
                     {
@@ -175,6 +176,7 @@ namespace LoLAccountChecker.Views
                 format = format.Replace("%USERNAME%", account.Username);
                 format = format.Replace("%PASSWORD%", account.Password);
                 format = format.Replace("%SUMMONERNAME%", account.Summoner);
+                format = format.Replace("%SUMMONERID%", account.SummonerId.ToString());
                 format = format.Replace("%LEVEL%", account.Level.ToString());
                 format = format.Replace("%EMAILSTATUS%", account.EmailStatus);
                 format = format.Replace("%RP%", account.RpBalance.ToString());
@@ -198,6 +200,8 @@ namespace LoLAccountChecker.Views
                 {
                     sw.Write(sb.ToString());
                 }
+
+                await this.ShowMessageAsync("Export", "Done");
             }
             else if (s.Name == "copy")
             {

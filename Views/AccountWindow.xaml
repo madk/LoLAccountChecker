@@ -4,7 +4,8 @@
                       xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
                       xmlns:ImageLoader="clr-namespace:ImageLoader;assembly=ImageLoader"
                       Title="Champions" Height="560" Width="765" BorderBrush="#CC119EDA" BorderThickness="1">
-    <TabControl>
+    
+    <TabControl x:Name="AccountTabs">
         <TabItem Header="Champions">
             <Grid>
                 <Grid.RowDefinitions>
@@ -12,7 +13,8 @@
                     <RowDefinition Height="36" />
                 </Grid.RowDefinitions>
                 <ListBox x:Name="ChampionsListBox" ItemsSource="{Binding ChampionData}" 
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" Grid.Row="0" >
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" Grid.Row="0" 
+                         MouseDoubleClick="CmViewSkins">
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel IsItemsHost="True" Orientation="Horizontal" />
@@ -24,10 +26,10 @@
                                 <StackPanel Margin="5" Orientation="Vertical">
                                     <ImageLoader:Image
                                             SourceUri="{Binding ImagePath}"
-                                            DisplayWaitingAnimationDuringLoading="False"
+                                            DisplayWaitingAnimationDuringLoading="True"
                                             Width="100"
                                             Height="100"
-                                            Stretch="Fill"/>
+                                            Stretch="Uniform"/>
                                     <Label Content="{Binding Name}" />
                                     <ToolTipService.ToolTip>
                                         <TextBlock>
@@ -56,6 +58,11 @@
                             <Setter Property="Margin" Value="0" />
                         </Style>
                     </ListBox.ItemContainerStyle>
+                    <ListBox.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="View skins" Click="CmViewSkins" />
+                        </ContextMenu>
+                    </ListBox.ContextMenu>
                 </ListBox>
                 <Label Content="Sorting" VerticalAlignment="Bottom" HorizontalAlignment="Left" FontSize="16"
                       Grid.Row="1" Margin="0,0,0,3" />
@@ -95,14 +102,12 @@
                             <StackPanel Margin="10" Orientation="Vertical">
                                 <Border BorderThickness="1" BorderBrush="#D9D9D9" VerticalAlignment="Top">
                                     <Grid>
-                                        <TextBlock Text="Loading image..."
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         <ImageLoader:Image
                                             SourceUri="{Binding ImageUrl}"
-                                            DisplayWaitingAnimationDuringLoading="False"
+                                            DisplayWaitingAnimationDuringLoading="True"
                                             Width="154"
                                             Height="280"
-                                            Stretch="Fill"/>
+                                            Stretch="Uniform"/>
                                     </Grid>
                                 </Border>
                                 <TextBlock>

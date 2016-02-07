@@ -5,11 +5,11 @@ using System.Windows.Media.Imaging;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using ImageLoader.ImageLoaders;
 using System.Collections.Concurrent;
 using System.Runtime.Caching;
 using System.Security.Cryptography;
 using System.Text;
+using ImageLoader.ImageLoaders;
 
 namespace ImageLoader
 {
@@ -23,10 +23,10 @@ namespace ImageLoader
 
         #region Properties
         private const int MaxThreads = 3;
-        private const int ItemCacheExpirationMinutes = 3;
+        private const int ItemCacheExpirationMinutes = 5;
         
         private AutoResetEvent _loaderThreadEvent = new AutoResetEvent(false);
-        private ConcurrentQueue<LoadImageRequest> _loadQueue = new ConcurrentQueue<LoadImageRequest>();
+        private ConcurrentStack<LoadImageRequest> _loadQueue = new ConcurrentStack<LoadImageRequest>();
 
         private ObjectCache _cache = MemoryCache.Default;
 
@@ -108,7 +108,7 @@ namespace ImageLoader
 
             BeginLoading(image);
 
-            _loadQueue.Enqueue(loadTask);
+            _loadQueue.Push(loadTask);
 
             _loaderThreadEvent.Set();
         }
@@ -122,7 +122,7 @@ namespace ImageLoader
                 image.IsLoading = true;
                 image.ErrorDetected = false;
 
-                if ((image.RenderTransform == MatrixTransform.Identity) && image.DisplayWaitingAnimationDuringLoading)
+                if ((image.RenderTransform == Transform.Identity) && image.DisplayWaitingAnimationDuringLoading)
                 {
                     image.Source = _loadingImage;
                     image.RenderTransformOrigin = new Point(0.5, 0.5);
@@ -137,12 +137,13 @@ namespace ImageLoader
             {
                 if (image.RenderTransform == _loadingAnimationTransform)
                 {
-                    image.RenderTransform = MatrixTransform.Identity;
+                    image.RenderTransform = Transform.Identity;
                 }
 
                 if (image.ErrorDetected && image.DisplayErrorThumbnailOnError)
                 {
                     imageSource = _errorThumbnail;
+                    image.Stretch = Stretch.Uniform;
                 }
 
                 image.Source = imageSource;
@@ -161,8 +162,8 @@ namespace ImageLoader
                 return null;
             }
 
-            double width = Double.NaN;
-            double height = Double.NaN;
+            double width = double.NaN;
+            double height = double.NaN;
 
             image.Dispatcher.Invoke(new ThreadStart(delegate
             {
@@ -210,7 +211,7 @@ namespace ImageLoader
                     BitmapImage bitmapImage = new BitmapImage();
                     bitmapImage.BeginInit();
                     bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-                    if (!Double.IsNaN(width) && !Double.IsNaN(height))
+                    if (!double.IsNaN(width) && !double.IsNaN(height))
                     {
                         bitmapImage.DecodePixelWidth = (int)width;
                         bitmapImage.DecodePixelHeight = (int)height;
@@ -252,7 +253,7 @@ namespace ImageLoader
 
                 LoadImageRequest loadTask = null;
 
-                while (_loadQueue.TryDequeue(out loadTask))
+                while (_loadQueue.TryPop(out loadTask))
                 {
                     ImageSource bitmapSource = GetBitmapSource(loadTask);
                     EndLoading(loadTask.Image, bitmapSource);

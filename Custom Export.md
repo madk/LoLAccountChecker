@@ -1,14 +1,11 @@
 # Custom Export
 
-**This is still under development.**
-
-In the version 2.0.0.10 you can can export your account's to a text file using the variables bellow. To export lists, you need insert the data you wanna export inside their tags (See the example at the bottom of the document).
-
 # Variables
 #### Account
 * ``%USERNAME%`` - Username
 * ``%PASSWORD%`` - Password
 * ``%SUMMONERNAME%`` - Summoner Name
+* ``%SUMMONERID%`` - Summoner ID
 * ``%LEVEL%`` - Level
 * ``%RANK%`` - Solo Queue Rank
 * ``%EMAILSTATUS%`` - Email status
@@ -26,7 +23,7 @@ In the version 2.0.0.10 you can can export your account's to a text file using t
 Tag: ``[%CHAMPIONLIST%] [/%CHAMPIONLIST%]``
 * ``%ID%`` - Champion ID
 * ``%NAME%`` - Champion Name
-* ``%PUCHASEDATE%`` - Date and Time when the champion was purchased
+* ``%PURCHASEDATE%`` - Date and Time when the champion was purchased
 
 #### Skin List
 Tag: ``[%SKINLIST%] [/%SKINLIST%]``

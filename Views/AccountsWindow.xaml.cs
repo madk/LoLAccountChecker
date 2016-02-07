@@ -42,7 +42,7 @@ namespace LoLAccountChecker.Views
             InitializeComponent();
             Instance = this;
 
-            this.Closed += (o, a) => { Instance = null; };
+            Closed += (o, a) => { Instance = null; };
 
             _showPasswords.IsChecked = Settings.Config.ShowPasswords;
 
@@ -57,8 +57,14 @@ namespace LoLAccountChecker.Views
             w.ShowDialog();
         }
 
-        private void BtnImportClick(object sender, RoutedEventArgs e)
+        private async void BtnImportClick(object sender, RoutedEventArgs e)
         {
+            if (Checker.IsChecking)
+            {
+                await this.ShowMessageAsync("Error", "Command not accepted while checker is working.");
+                return;
+            }
+
             OpenFileDialog ofd = new OpenFileDialog
             {
                 Filter = "Text File (*.txt)|*.txt"
@@ -160,7 +166,7 @@ namespace LoLAccountChecker.Views
         {
             if (Checker.IsChecking)
             {
-                await this.ShowMessageAsync("Error", "You can't edit accounts while the checker is working.");
+                await this.ShowMessageAsync("Error", "You can't edit accounts while checker is working.");
                 return;
             }
 
@@ -182,6 +188,12 @@ namespace LoLAccountChecker.Views
 
         private async void CmMakeUncheckedClick(object sender, RoutedEventArgs e)
         {
+            if (Checker.IsChecking)
+            {
+                await this.ShowMessageAsync("Error", "Command not accepted while checker is working.");
+                return;
+            }
+
             if (_accountsGrid.SelectedItems.Count == 0)
             {
                 return;
@@ -267,6 +279,12 @@ namespace LoLAccountChecker.Views
 
         private async void CmRemoveClick(object sender, RoutedEventArgs e)
         {
+            if (Checker.IsChecking)
+            {
+                await this.ShowMessageAsync("Error", "Command not accepted while checker is working.");
+                return;
+            }
+
             int selected = _accountsGrid.SelectedItems.Count;
 
             if (selected == 0)
@@ -306,6 +324,12 @@ namespace LoLAccountChecker.Views
 
         private async void BtnClearAccountsClick(object sender, RoutedEventArgs e)
         {
+            if (Checker.IsChecking)
+            {
+                await this.ShowMessageAsync("Error", "Command not accepted while checker is working.");
+                return;
+            }
+
             MessageDialogResult confirm = await this.ShowMessageAsync("Remove", "Are you sure?", MessageDialogStyle.AffirmativeAndNegative);
 
             if (confirm == MessageDialogResult.Negative)

@@ -24,7 +24,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 using LoLAccountChecker.Classes;
 using LoLAccountChecker.Views;
 
@@ -110,8 +109,11 @@ namespace LoLAccountChecker
                     continue;
                 }
 
+                Client client = new Client(account.Region, account.Username, account.Password);
+                await client.IsCompleted.Task;
+
                 int i = Accounts.FindIndex(a => a.Username == account.Username);
-                Accounts[i] = await CheckAccount(account);
+                Accounts[i] = client.Data;
 
                 MainWindow.Instance.UpdateControls();
 
@@ -122,15 +124,6 @@ namespace LoLAccountChecker
             }
 
             Stop();
-        }
-
-        public static async Task<Account> CheckAccount(Account account)
-        {
-            Client client = new Client(account.Region, account.Username, account.Password);
-
-            await client.IsCompleted.Task;
-
-            return client.Data;
         }
     }
 }

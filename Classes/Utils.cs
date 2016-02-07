@@ -129,40 +129,5 @@ namespace LoLAccountChecker.Classes
         {
             return s.Replace(":", "").Replace(" ", "").ToLower();
         }
-
-        public static BitmapImage NoImage(int Width, int Height)
-        {
-            Bitmap bmp = new Bitmap(Width, Height);
-            
-            using (Graphics gfx = Graphics.FromImage(bmp))
-            {
-                gfx.Clear(Color.White);
-                Pen pen = new Pen(Brushes.Red);
-                gfx.DrawLine(pen,
-                    new System.Drawing.Point(0, 0),
-                    new System.Drawing.Point(Width, Height));
-                gfx.DrawLine(pen,
-                    new System.Drawing.Point(Width, 0),
-                    new System.Drawing.Point(0, Height));
-                pen.Dispose();
-            }
-            
-            BitmapSource bs = Imaging.CreateBitmapSourceFromHBitmap(bmp.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
-            BmpBitmapEncoder enc = new BmpBitmapEncoder();
-            
-            using (MemoryStream ms = new MemoryStream())
-            {
-                BitmapImage img = new BitmapImage();
-                enc.Frames.Add(BitmapFrame.Create(bs));
-                enc.Save(ms);
-                ms.Position = 0;
-                img.BeginInit();
-                img.CacheOption = BitmapCacheOption.OnLoad;
-                img.StreamSource = ms;
-                img.EndInit();
-
-                return img;
-            }
-        }
     }
 }
