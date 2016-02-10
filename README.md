@@ -1,13 +1,13 @@
 # LoLAccountChecker (my own update)
 
+[DOWNLOAD](https://github.com/yokrysty/LoLAccountChecker/raw/master/LoLAccountChecker.zip)
+
 ![alt tag](https://raw.githubusercontent.com/yokrysty/LoLAccountChecker/master/preview_001.jpg)
 <br>
 ![alt tag](https://raw.githubusercontent.com/yokrysty/LoLAccountChecker/master/preview_002.jpg)
 <br>
 ![alt tag](https://raw.githubusercontent.com/yokrysty/LoLAccountChecker/master/preview_003.jpg)
 <br>
-
-[DOWNLOAD](https://github.com/yokrysty/LoLAccountChecker/raw/master/LoLAccountChecker.zip)
 
 This tool will give you some information about your league of legends accounts and store them in a text file.
 
