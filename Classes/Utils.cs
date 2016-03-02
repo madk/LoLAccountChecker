@@ -23,13 +23,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Windows;
-using System.Windows.Interop;
-using System.Windows.Media.Imaging;
+using System.Threading.Tasks;
 
 #endregion
 
@@ -47,7 +44,7 @@ namespace LoLAccountChecker.Classes
             {
                 string line = sr.ReadLine();
 
-                if (String.IsNullOrEmpty(line) || line.StartsWith("#"))
+                if (string.IsNullOrEmpty(line) || line.StartsWith("#"))
                 {
                     continue;
                 }
@@ -91,9 +88,9 @@ namespace LoLAccountChecker.Classes
             }
         }
 
-        public static string GetHtmlResponse(string url, CookieContainer cookieContainer = null)
+        public static async Task<string> GetHtmlResponse(string url, CookieContainer cookieContainer = null)
         {
-            HttpWebRequest wr = (HttpWebRequest) WebRequest.Create(url);
+            HttpWebRequest wr = (HttpWebRequest)WebRequest.Create(url);
 
             if (cookieContainer != null)
             {
@@ -104,12 +101,11 @@ namespace LoLAccountChecker.Classes
             {
                 string html;
 
-                using (WebResponse resp = wr.GetResponse())
+                using (WebResponse resp = await wr.GetResponseAsync())
+                using (Stream stream = resp.GetResponseStream())
+                using (StreamReader sr = new StreamReader(stream))
                 {
-                    using (StreamReader sr = new StreamReader(resp.GetResponseStream()))
-                    {
-                        html = sr.ReadToEnd();
-                    }
+                    html = await sr.ReadToEndAsync();
                 }
 
                 return html;
@@ -118,7 +114,8 @@ namespace LoLAccountChecker.Classes
             {
                 using (WebResponse response = e.Response)
                 {
-                    HttpWebResponse resp = (HttpWebResponse) response;
+                    HttpWebResponse resp = (HttpWebResponse)response;
+                    Console.WriteLine(resp);
                 }
 
                 return string.Empty;

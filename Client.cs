@@ -132,13 +132,15 @@ namespace LoLAccountChecker
                     Data.SoloQRank = "Unranked";
                 }
 
-                var recentGames = await pvpnet.GetRecentGames(loginPacket.AllSummonerData.Summoner.AcctId);
-                var lastGame = recentGames.GameStatistics.FirstOrDefault();
+                Data.LastPlay = loginPacket.AllSummonerData.Summoner.LastGameDate;
 
-                if (lastGame != null)
-                {
-                    Data.LastPlay = lastGame.CreateDate;
-                }
+                //var recentGames = await pvpnet.GetRecentGames(loginPacket.AllSummonerData.Summoner.AcctId);
+                //var lastGame = recentGames.GameStatistics.FirstOrDefault();
+
+                //if (lastGame != null)
+                //{
+                //Data.LastPlay = lastGame.CreateDate;
+                //}
 
                 Data.CheckedTime = DateTime.Now;
                 Data.State = Account.Result.Success;
@@ -171,10 +173,10 @@ namespace LoLAccountChecker
 
             CookieContainer cookies = new CookieContainer();
 
-            Utils.GetHtmlResponse(storeUrl, cookies);
+            await Utils.GetHtmlResponse(storeUrl, cookies);
 
-            string miscHtml = Utils.GetHtmlResponse(storeUrlMisc, cookies);
-            string histHtml = Utils.GetHtmlResponse(storeUrlHist, cookies);
+            string miscHtml = await Utils.GetHtmlResponse(storeUrlMisc, cookies);
+            string histHtml = await Utils.GetHtmlResponse(storeUrlHist, cookies);
 
             foreach (Match match in regexTransfers.Matches(miscHtml))
             {

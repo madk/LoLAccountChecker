@@ -82,7 +82,7 @@ namespace LoLAccountChecker.Classes
                     return Password;
                 }
 
-                return new String('\u2022', Password.Length);
+                return new string('\u2022', Password.Length);
             }
         }
 
