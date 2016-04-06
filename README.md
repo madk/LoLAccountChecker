@@ -8,6 +8,8 @@
 <br>
 ![alt tag](https://raw.githubusercontent.com/yokrysty/LoLAccountChecker/master/preview_003.jpg)
 <br>
+![alt tag](https://raw.githubusercontent.com/yokrysty/LoLAccountChecker/master/preview_004.jpg)
+<br>
 
 This tool will give you some information about your league of legends accounts and store them in a text file.
 
