@@ -25,31 +25,32 @@ namespace ImageLoader
         private const int MaxThreads = 3;
         private const int ItemCacheExpirationMinutes = 5;
         
-        private AutoResetEvent _loaderThreadEvent = new AutoResetEvent(false);
-        private ConcurrentStack<LoadImageRequest> _loadQueue = new ConcurrentStack<LoadImageRequest>();
+        private readonly AutoResetEvent _loaderThreadEvent = new AutoResetEvent(false);
+        private readonly ConcurrentStack<LoadImageRequest> _loadQueue = new ConcurrentStack<LoadImageRequest>();
 
-        private ObjectCache _cache = MemoryCache.Default;
+        private readonly ObjectCache _cache = MemoryCache.Default;
 
-        private static readonly SHA1Managed _sha1Managed = new SHA1Managed();
-        private static readonly UTF8Encoding _utf8Encoding = new UTF8Encoding();
+        private static readonly SHA1Managed Sha1Managed = new SHA1Managed();
+        private static readonly UTF8Encoding Utf8Encoding = new UTF8Encoding();
 
-        private DrawingImage _loadingImage = null;
-        private DrawingImage _errorThumbnail = null;
-        private TransformGroup _loadingAnimationTransform = null;
+        private readonly DrawingImage _loadingImage;
+        private readonly DrawingImage _errorThumbnail;
+        private readonly TransformGroup _loadingAnimationTransform;
         #endregion
 
         #region Singleton Implementation
-        private static Manager instance = null;
-
+        private static Manager _instance;
         private Manager()
         {
             #region Create Loading Threads
             for (int i = 0; i < MaxThreads; i++)
             {
-                Thread loaderThread = new Thread(new ThreadStart(LoaderWork));
-                loaderThread.IsBackground = true;
-                loaderThread.Priority = ThreadPriority.BelowNormal;
-                loaderThread.Name = string.Format("ImageLoaderThread{0}", i + 1);
+                Thread loaderThread = new Thread(LoaderWork)
+                {
+                    IsBackground = true,
+                    Priority = ThreadPriority.BelowNormal,
+                    Name = $"ImageLoaderThread{i + 1}"
+                };
                 loaderThread.Start();
             }
             #endregion
@@ -58,9 +59,9 @@ namespace ImageLoader
             ResourceDictionary resourceDictionary = new ResourceDictionary();
             resourceDictionary.Source = new Uri("ImageLoader;component/Resources.xaml", UriKind.Relative);
             _loadingImage = resourceDictionary["ImageLoading"] as DrawingImage;
-            _loadingImage.Freeze();
+            _loadingImage?.Freeze();
             _errorThumbnail = resourceDictionary["ImageError"] as DrawingImage;
-            _errorThumbnail.Freeze();
+            _errorThumbnail?.Freeze();
             #endregion
 
             # region Create Loading Animation
@@ -75,26 +76,17 @@ namespace ImageLoader
             group.Children.Add(rotateTransform);
             group.Children.Add(translateTransform);
 
-            DoubleAnimation doubleAnimation = new DoubleAnimation(0, 359, new TimeSpan(0, 0, 0, 1));
-            doubleAnimation.RepeatBehavior = RepeatBehavior.Forever;
+            DoubleAnimation doubleAnimation = new DoubleAnimation(0, 359, new TimeSpan(0, 0, 0, 1))
+            {
+                RepeatBehavior = RepeatBehavior.Forever
+            };
 
             rotateTransform.BeginAnimation(RotateTransform.AngleProperty, doubleAnimation);
 
             _loadingAnimationTransform = group;
             #endregion
         }
-
-        public static Manager Instance
-        {
-            get
-            {
-                if (instance == null)
-                {
-                    instance = new Manager();
-                }
-                return instance;
-            }
-        }
+        public static Manager Instance => _instance ?? (_instance = new Manager());
         #endregion
 
         #region Public Methods
@@ -122,7 +114,7 @@ namespace ImageLoader
                 image.IsLoading = true;
                 image.ErrorDetected = false;
 
-                if ((image.RenderTransform == Transform.Identity) && image.DisplayWaitingAnimationDuringLoading)
+                if (Equals(image.RenderTransform, Transform.Identity) && image.DisplayWaitingAnimationDuringLoading)
                 {
                     image.Source = _loadingImage;
                     image.RenderTransformOrigin = new Point(0.5, 0.5);
@@ -135,7 +127,7 @@ namespace ImageLoader
         {
             image.Dispatcher.BeginInvoke(new Action(delegate
             {
-                if (image.RenderTransform == _loadingAnimationTransform)
+                if (Equals(image.RenderTransform, _loadingAnimationTransform))
                 {
                     image.RenderTransform = Transform.Identity;
                 }
@@ -241,7 +233,7 @@ namespace ImageLoader
 
         private static string ComputeHash(string s)
         {
-            var hash = _sha1Managed.ComputeHash(_utf8Encoding.GetBytes(s.ToCharArray()));
+            var hash = Sha1Managed.ComputeHash(Utf8Encoding.GetBytes(s.ToCharArray()));
             return BitConverter.ToString(hash).Replace("-", "");
         }
 

@@ -22,6 +22,7 @@
 #region
 
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -41,7 +42,16 @@ namespace LoLAccountChecker.Views
     public partial class MainWindow
     {
         public static MainWindow Instance;
-        public bool IsSearchActive;
+        private static readonly ICollectionView CheckedAccountsView;
+        public bool IsFilterActive;
+        internal static Predicate<object> CheckedAccountsViewDefaultFilter;
+
+        static MainWindow()
+        {
+            CheckedAccountsView = new CollectionViewSource {Source = Checker.Accounts}.View;
+            CheckedAccountsViewDefaultFilter = item => ((Account)item).State == Account.Result.Success;
+            CheckedAccountsView.Filter = CheckedAccountsViewDefaultFilter;
+        }
 
         public MainWindow()
         {
@@ -49,12 +59,52 @@ namespace LoLAccountChecker.Views
 
             Instance = this;
 
-            IsSearchActive = false;
-
-            AccountsDataGrid.PreviewKeyDown += Common.AccountsDataGrid_SearchByLetterKey;
+            AccountsDataGrid.ItemsSource = CheckedAccountsView;
+            AccountsDataGrid.PreviewKeyDown += Utils.AccountsDataDataGridSearchByLetterKey;
+            AccountsDataGrid.Loaded += (s, e) =>
+            {
+                foreach(var col in AccountsDataGrid.Columns)
+                {
+                    col.MinWidth = col.ActualWidth;
+                    col.Width = new DataGridLength(1, DataGridLengthUnitType.Star);
+                }
+            };
 
             Loaded += WindowLoaded;
             Closed += WindowClosed;
+
+            Checker.Accounts.CollectionChanged += (sender, args) =>
+            {
+                if (args != null)
+                {
+                    if (args.NewItems != null)
+                    {
+                        foreach (INotifyPropertyChanged item in args.NewItems)
+                        {
+                            item.PropertyChanged += (s, e) => UpdateControls();
+                        }
+                        foreach (Account acc in args.NewItems)
+                        {
+                            acc.PropertyChanged += (o, e) =>
+                            {
+                                if (e.PropertyName == nameof(Account.State))
+                                {
+                                    CheckedAccountsView.Refresh();
+                                }
+                            };
+                        }
+                    }
+                    if (args.OldItems != null)
+                    {
+                        foreach (INotifyPropertyChanged item in args.OldItems)
+                        {
+                            item.PropertyChanged -= (s, e) => UpdateControls();
+                        }
+                    }
+                }
+                UpdateControls();
+            };
+            UpdateControls();
         }
 
         private async void WindowLoaded(object sender, RoutedEventArgs e)
@@ -76,50 +126,44 @@ namespace LoLAccountChecker.Views
                 return;
             }
 
-            ClearSearch();
+            int numCheckedAcccounts = Checker.Accounts.Count(a => a.State != Account.Result.Unchecked);
 
-            var numCheckedAcccounts = Checker.Accounts.Count(a => a.State != Account.Result.Unchecked);
+            ProgressBar.Value = Checker.Accounts.Any() ? numCheckedAcccounts * 100f / Checker.Accounts.Count : 0;
 
-            ProgressBar.Value = Checker.Accounts.Any() ? ((numCheckedAcccounts * 100f) / Checker.Accounts.Count()) : 0;
-
+            ImportButton.IsEnabled = !Checker.IsChecking;
             ExportButton.IsEnabled = numCheckedAcccounts > 0;
-            StartButton.IsEnabled = numCheckedAcccounts < Checker.Accounts.Count;
+            FilterButton.IsEnabled = numCheckedAcccounts > 0;
+
             StartButton.Content = Checker.IsChecking ? "Stop" : "Start";
-            SearchButton.IsEnabled = numCheckedAcccounts > 0;
-
-            if (Checker.IsChecking)
+            if (Checker.CancellationTokenSource != null && Checker.CancellationTokenSource.IsCancellationRequested)
             {
-                StatusLabel.Content = "Status: Checking...";
+                StartButton.IsEnabled = false;
+                StatusLabel.Content = "Status: Stopping...";
             }
-            else if (numCheckedAcccounts > 0 && Checker.Accounts.All(a => a.State != Account.Result.Unchecked))
+            else
             {
-                StatusLabel.Content = "Status: Finished!";
+                StartButton.IsEnabled = numCheckedAcccounts < Checker.Accounts.Count;
+
+                if (Checker.IsChecking)
+                {
+                    StatusLabel.Content = "Status: Checking...";
+                }
+                else if (numCheckedAcccounts > 0 && numCheckedAcccounts == Checker.Accounts.Count)
+                {
+                    StatusLabel.Content = "Status: Finished!";
+                }
+                else
+                {
+                    StatusLabel.Content = "Status: Stopped!";
+                }
             }
 
-            CheckedLabel.Content = string.Format("Checked: {0}/{1}", numCheckedAcccounts, Checker.Accounts.Count);
-
-            AccountsDataGrid.ItemsSource = Checker.Accounts.Where(a => a.State == Account.Result.Success);
+            CheckedLabel.Content = $"Checked: {numCheckedAcccounts}/{Checker.Accounts.Count}";
 
             if (AccountsWindow.Instance != null)
             {
                 AccountsWindow.Instance.UpdateControls();
             }
-        }
-
-        public void UpdateProgressBar(double value)
-        {
-            if (value > 100 || value < 0)
-            {
-                return;
-            }
-
-            if (!Dispatcher.CheckAccess())
-            {
-                Dispatcher.Invoke(() => UpdateProgressBar(value));
-                return;
-            }
-
-            ProgressBar.Value = value;
         }
 
         #region Right Window Commands
@@ -145,8 +189,10 @@ namespace LoLAccountChecker.Views
 
         private async void BtnImportClick(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog ofd = new OpenFileDialog();
-            ofd.Filter = "JavaScript Object Notation (*.json)|*.json";
+            OpenFileDialog ofd = new OpenFileDialog
+            {
+                Filter = "JavaScript Object Notation (*.json)|*.json"
+            };
 
             if (ofd.ShowDialog() != true)
             {
@@ -188,13 +234,13 @@ namespace LoLAccountChecker.Views
             int count = 0;
             foreach (Account account in jsonformat.Accounts)
             {
-                if (!Checker.Accounts.Exists(a => a.Username.ToLower() == account.Username.ToLower()))
+                if (Checker.Accounts.All(a => !string.Equals(a.Username, account.Username, StringComparison.CurrentCultureIgnoreCase)))
                 {
                     foreach (ChampionData champion in account.ChampionList)
                     {
                         SkinData skin = account.SkinList.FirstOrDefault(c => c.ChampionId == champion.Id);
 
-                        champion.HasSkin = (skin != null) ? true : false;
+                        champion.HasSkin = skin != null;
                     }
 
                     Checker.Accounts.Add(account);
@@ -204,7 +250,6 @@ namespace LoLAccountChecker.Views
 
             if (count > 0)
             {
-                UpdateControls();
                 AccountsDataGrid.Focus();
                 return;
             }
@@ -214,15 +259,19 @@ namespace LoLAccountChecker.Views
 
         private void BtnExportToFileClick(object sender, RoutedEventArgs e)
         {
-            SaveFileDialog sfd = new SaveFileDialog();
-            sfd.FileName = "output";
-            sfd.Filter = "JavaScript Object Notation (*.json)|*.json";
-
-            if (sfd.ShowDialog() == true)
+            SaveFileDialog sfd = new SaveFileDialog
             {
-                JsonFormat.Export(sfd.FileName, Checker.Accounts.Where(a => a.State == Account.Result.Success).ToList());
-                this.ShowMessageAsync("Export", string.Format("Exported {0} accounts.", Checker.Accounts.Count));
+                FileName = "output",
+                Filter = "JavaScript Object Notation (*.json)|*.json"
+            };
+
+            if (sfd.ShowDialog() != true)
+            {
+                return;
             }
+            var accounts = Checker.Accounts.Where(a => a.State == Account.Result.Success).ToList();
+            JsonFormat.Export(sfd.FileName, accounts);
+            this.ShowMessageAsync("Export", $"Exported {accounts.Count} accounts.");
         }
 
         private void BtnAccountsClick(object sender, RoutedEventArgs e)
@@ -248,31 +297,19 @@ namespace LoLAccountChecker.Views
             if (Checker.IsChecking)
             {
                 Checker.Stop();
-                StartButton.Content = "Start";
-                StatusLabel.Content = "Status: Stopped!";
+                UpdateControls();
                 return;
             }
-
-            if (Checker.Accounts.All(a => a.State != Account.Result.Unchecked))
-            {
-                this.ShowMessageAsync("Error", "All accounts have already been checked.");
-                return;
-            }
-
-            StartButton.Content = "Stop";
-            StatusLabel.Content = "Status: Checking...";
-
             Checker.Start();
         }
 
-        private void BtnSearchClick(object sender, RoutedEventArgs e)
+        private void BtnFilterClick(object sender, RoutedEventArgs e)
         {
-            if (IsSearchActive)
+            if (IsFilterActive)
             {
-                ClearSearch();
+                ClearFilter();
                 return;
             }
-
             SearchWindow sw = new SearchWindow();
             sw.ShowDialog();
         }
@@ -281,72 +318,29 @@ namespace LoLAccountChecker.Views
 
         #region Context Menu
 
-        private void CmCopyUsername(object sender, RoutedEventArgs routedEventArgs)
+        private void AccountsDataGrid_Cm(object sender, RoutedEventArgs e)
         {
-            if (AccountsDataGrid.SelectedItem == null)
+            Utils.AccountsDataGrid_RightClickCommand(sender, AccountsDataGrid);
+        }
+
+        private void ViewAccount()
+        {
+            if (AccountsDataGrid.SelectedItems.Count == 0)
             {
                 return;
             }
-
-            Clipboard.SetDataObject(((Account)AccountsDataGrid.SelectedItem).Username);
-        }
-
-        private void CmCopyPassword(object sender, RoutedEventArgs routedEventArgs)
-        {
-            if (AccountsDataGrid.SelectedItem == null)
-            {
-                return;
-            }
-
-            Clipboard.SetDataObject(((Account)AccountsDataGrid.SelectedItem).Password);
-        }
-
-        private void CmCopyCombo(object sender, RoutedEventArgs e)
-        {
-            Common.CopyCombo(AccountsDataGrid);
-        }
-
-        private void CmCopySummoner(object sender, RoutedEventArgs e)
-        {
-            if (AccountsDataGrid.SelectedItem == null)
-            {
-                return;
-            }
-
-            Clipboard.SetDataObject(((Account)AccountsDataGrid.SelectedItem).Summoner);
-        }
-
-        private void ViewAccount(object selectedItem)
-        {
-            if (AccountsDataGrid.SelectedItem == null)
-            {
-                return;
-            }
-
             AccountWindow window = new AccountWindow((Account)AccountsDataGrid.SelectedItem);
             window.Show();
         }
 
         private void CmViewAccount(object sender, RoutedEventArgs e)
         {
-            if (AccountsDataGrid.SelectedItem == null)
-            {
-                return;
-            }
-
-            ViewAccount(AccountsDataGrid.SelectedItem);
+            ViewAccount();
         }
 
         private void Row_DoubleClick(object sender, MouseButtonEventArgs e)
         {
-            DataGridRow row = ItemsControl.ContainerFromElement((DataGrid)sender, e.OriginalSource as DependencyObject) as DataGridRow;
-
-            if (row == null)
-            {
-                return;
-            }
-
-            ViewAccount(row.Item);
+            ViewAccount();
         }
 
         private void CmExportJson(object sender, RoutedEventArgs e)
@@ -355,19 +349,19 @@ namespace LoLAccountChecker.Views
             {
                 return;
             }
-
-            SaveFileDialog sfd = new SaveFileDialog();
-            sfd.FileName = "output";
-            sfd.Filter = "JavaScript Object Notation (*.json)|*.json";
+            SaveFileDialog sfd = new SaveFileDialog
+            {
+                FileName = "output",
+                Filter = "JavaScript Object Notation (*.json)|*.json"
+            };
 
             var accounts = AccountsDataGrid.SelectedItems.Cast<Account>().ToList();
 
             if (sfd.ShowDialog() == true)
             {
                 var file = sfd.FileName;
-
                 JsonFormat.Export(file, accounts);
-                this.ShowMessageAsync("Export", string.Format("Exported {0} accounts.", accounts.Count));
+                this.ShowMessageAsync("Export", $"Exported {accounts.Count} accounts.");
             }
         }
 
@@ -377,28 +371,25 @@ namespace LoLAccountChecker.Views
             {
                 return;
             }
-
-            var accounts = AccountsDataGrid.SelectedItems.Cast<Account>();
-            ExportWindow window = new ExportWindow(accounts);
+            ExportWindow window = new ExportWindow(AccountsDataGrid.SelectedItems.Cast<Account>());
             window.ShowDialog();
         }
 
         #endregion
 
-        public void ClearSearch()
+        public void ClearFilter()
         {
-            if (!IsSearchActive)
+            if (!IsFilterActive)
             {
                 return;
             }
-
             CollectionView cv = (CollectionView)CollectionViewSource.GetDefaultView(AccountsDataGrid.ItemsSource);
             if (cv != null)
             {
-                cv.Filter = null;
+                cv.Filter = CheckedAccountsViewDefaultFilter;
             }
-            SearchButton.Content = "Search";
-            IsSearchActive = false;
+            FilterButton.Content = "Filter";
+            IsFilterActive = false;
         }
     }
 }

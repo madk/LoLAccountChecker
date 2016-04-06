@@ -3,7 +3,7 @@
                       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                       xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
                       xmlns:ImageLoader="clr-namespace:ImageLoader;assembly=ImageLoader"
-                      Title="Champions" Height="560" Width="765" BorderBrush="#CC119EDA" BorderThickness="1">
+                      Title="Champions" Height="585" Width="765" BorderBrush="#CC119EDA" BorderThickness="1">
     
     <TabControl x:Name="AccountTabs">
         <TabItem Header="Champions">
@@ -25,17 +25,18 @@
                             <Border Margin="5" BorderThickness="1" BorderBrush="#D9D9D9" VerticalAlignment="Top">
                                 <StackPanel Margin="5" Orientation="Vertical">
                                     <ImageLoader:Image
-                                            SourceUri="{Binding ImagePath}"
+                                            SourceUri="{Binding ImageUrl}"
                                             DisplayWaitingAnimationDuringLoading="True"
                                             Width="100"
                                             Height="100"
                                             Stretch="Uniform"/>
-                                    <Label Content="{Binding Name}" />
+                                    <TextBlock Text="{Binding Name}" />
+                                    <TextBlock Text="{Binding PurchaseDate, StringFormat='\{0:dd.MM.yyyy\}'}" />
                                     <ToolTipService.ToolTip>
                                         <TextBlock>
                                                 <Run Text="Purchase Date:" />
                                                 <LineBreak />
-                                                <Run Text="{Binding PurchaseDate, StringFormat=\{0:dd.MM.yyyy HH:mm\}}" />
+                                                <Run Text="{Binding PurchaseDate, StringFormat='\{0:dd.MM.yyyy HH:mm\}'}" />
                                         </TextBlock>
                                     </ToolTipService.ToolTip>
                                 </StackPanel>
@@ -110,11 +111,16 @@
                                             Stretch="Uniform"/>
                                     </Grid>
                                 </Border>
-                                <TextBlock>
-                                <Run Text="{Binding Name}" />
-                                <LineBreak />
-                                <Run Text="{Binding Obtainable, StringFormat='Obtainable: {0}', Mode=OneWay}" />
-                                </TextBlock>
+                                <TextBlock Text="{Binding Name}" />
+                                <TextBlock Text="{Binding PurchaseDate, StringFormat='Purchased: \{0:dd.MM.yyyy\}'}" />
+                                <TextBlock Text="{Binding Obtainable, StringFormat='Obtainable: {0}', Mode=OneWay}" />
+                                <ToolTipService.ToolTip>
+                                    <TextBlock>
+                                                <Run Text="Purchase Date:" />
+                                                <LineBreak />
+                                                <Run Text="{Binding PurchaseDate, StringFormat='\{0:dd.MM.yyyy HH:mm\}'}" />
+                                    </TextBlock>
+                                </ToolTipService.ToolTip>
                             </StackPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>

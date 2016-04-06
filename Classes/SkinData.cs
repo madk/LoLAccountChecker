@@ -21,8 +21,8 @@
 
 #region
 
+using System;
 using Newtonsoft.Json;
-using System.Windows.Media.Imaging;
 
 #endregion
 
@@ -34,24 +34,19 @@ namespace LoLAccountChecker.Classes
         public string Name { get; set; }
         public int ChampionId { get; set; }
         public bool StillObtainable { get; set; }
+        public DateTime PurchaseDate { get; set; }
 
         [JsonIgnore]
-        public string Obtainable
-        { 
-            get { return this.StillObtainable == true ? "Yes" : "No"; }
-        }
+        public string Obtainable => StillObtainable ? "Yes" : "No";
 
         [JsonIgnore]
-        public Champion Champion
-        {
-            get { return LeagueData.GetChampion(this.ChampionId);}
-        }
+        public Champion Champion => LeagueData.GetChampion(ChampionId);
 
         [JsonIgnore]
-        public Skin Skin
-        {
-            get { return LeagueData.GetSkin(this.Champion, this.Id); }
-        }
+        public string ChampionName => Champion.Name;
+
+        [JsonIgnore]
+        public Skin Skin => LeagueData.GetSkin(Champion, Id);
 
         [JsonIgnore]
         public string ImageUrl
@@ -60,12 +55,7 @@ namespace LoLAccountChecker.Classes
             {
                 try
                 {
-                    string champId = this.Champion.StrId;
-                    string skinId = this.Skin.Num.ToString();
-
-                    string url = string.Format("http://ddragon.leagueoflegends.com/cdn/img/champion/loading/{0}_{1}.jpg", champId, skinId);
-
-                    return url;
+                    return $"http://ddragon.leagueoflegends.com/cdn/img/champion/loading/{Champion.StrId}_{Skin.Num}.jpg";
                 }
                 catch
                 {

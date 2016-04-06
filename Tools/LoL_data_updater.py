@@ -1,8 +1,8 @@
 import os, urllib, urllib2, json
 
-champs_vers = '5.24.2'
-images_vers = '5.24.2'
-runes_vers = '5.24.2'
+champs_vers = '6.6.1'
+images_vers = '6.6.1'
+runes_vers = '6.6.1'
 
 base_url = 'http://ddragon.leagueoflegends.com/cdn/'
 champs_url = '%s%s/data/en_US/championFull.json' % (base_url, champs_vers)
@@ -35,10 +35,10 @@ with open('Champions.json', 'w') as f:
 with open('Champions.Version', 'w') as f:
 	f.write(champs_vers)
 
-if not os.path.exists('images'):
-	os.makedirs('images')
+#if not os.path.exists('images'):
+#	os.makedirs('images')
 
-for champion in output:
+'''for champion in output:
 	filename = champion['StrId'] + '.png'
 	
 	url = img_url + filename
@@ -47,10 +47,10 @@ for champion in output:
 	
 	urllib.urlretrieve(url, filepath)
 	
-	print 'Downloading image for champion ' + champion['Name']
+	print 'Downloading image for champion ' + champion['Name']'''
 
-with open('Images.Version', 'w') as f:
-	f.write(images_vers)
+#with open('Images.Version', 'w') as f:
+#	f.write(images_vers)
 
 def getRuneType(str_type):
 	type = {

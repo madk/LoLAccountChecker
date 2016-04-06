@@ -13,7 +13,7 @@ namespace ImageLoader.ImageLoaders
         {
             try
             {
-                return File.ReadAllBytes(this.filePath);
+                return File.ReadAllBytes(filePath);
             }
             catch
             {

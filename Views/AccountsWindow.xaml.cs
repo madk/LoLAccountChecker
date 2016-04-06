@@ -28,6 +28,7 @@ using LoLAccountChecker.Classes;
 using MahApps.Metro.Controls.Dialogs;
 using Microsoft.Win32;
 using System.Collections.Generic;
+using System.Windows.Controls;
 
 #endregion
 
@@ -42,13 +43,48 @@ namespace LoLAccountChecker.Views
             InitializeComponent();
             Instance = this;
 
-            Closed += (o, a) => { Instance = null; };
+            Closed += (o, a) => Instance = null;
 
-            _showPasswords.IsChecked = Settings.Config.ShowPasswords;
+            CheckBoxShowPasswords.IsChecked = Settings.Config.ShowPasswords;
 
-            _accountsGrid.PreviewKeyDown += Common.AccountsDataGrid_SearchByLetterKey;
+            AccountsDataGrid.PreviewKeyDown += Utils.AccountsDataDataGridSearchByLetterKey;
+
+            AccountsDataGrid.ItemsSource = Checker.Accounts;
 
             UpdateControls();
+        }
+
+        public void UpdateControls()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(UpdateControls);
+                return;
+            }
+
+            ButtonClear.IsEnabled = !Checker.IsChecking && Checker.Accounts.Any();
+            ButtonExport.IsEnabled = !Checker.IsChecking && Checker.Accounts.Any();
+            ButtonAdd.IsEnabled = !Checker.IsChecking;
+            ButtonImport.IsEnabled = !Checker.IsChecking;
+            CheckBoxShowPasswords.IsEnabled = !Checker.IsChecking;
+
+            foreach (MenuItem menuItem in ContextMenuAccounts.Items)
+            {
+                if (menuItem.Header.ToString().Contains("Copy"))
+                {
+                    continue;
+                }
+                menuItem.IsEnabled = !Checker.IsChecking;
+            }
+        }
+
+        private void ShowPasswordsClick(object sender, RoutedEventArgs e)
+        {
+            Settings.Config.ShowPasswords = CheckBoxShowPasswords.IsChecked == true;
+            foreach (Account account in Checker.Accounts)
+            {
+                account.ShowPassword = Settings.Config.ShowPasswords;
+            }
         }
 
         private void BtnAddAccountClick(object sender, RoutedEventArgs e)
@@ -57,14 +93,8 @@ namespace LoLAccountChecker.Views
             w.ShowDialog();
         }
 
-        private async void BtnImportClick(object sender, RoutedEventArgs e)
+        private void BtnImportClick(object sender, RoutedEventArgs e)
         {
-            if (Checker.IsChecking)
-            {
-                await this.ShowMessageAsync("Error", "Command not accepted while checker is working.");
-                return;
-            }
-
             OpenFileDialog ofd = new OpenFileDialog
             {
                 Filter = "Text File (*.txt)|*.txt"
@@ -87,30 +117,6 @@ namespace LoLAccountChecker.Views
                 ImportWindow window = new ImportWindow(accounts);
                 window.ShowDialog();
             }
-        }
-
-        private void ShowPasswordsClick(object sender, RoutedEventArgs e)
-        {
-            Settings.Config.ShowPasswords = _showPasswords.IsChecked == true;
-            UpdateControls();
-        }
-
-        public void UpdateControls()
-        {
-            if (!Dispatcher.CheckAccess())
-            {
-                Dispatcher.Invoke(UpdateControls);
-                return;
-            }
-
-            _accountsGrid.ItemsSource = null;
-            _accountsGrid.ItemsSource = Checker.Accounts;
-            _accountsGrid.Items.Refresh();
-
-            bool b = Checker.Accounts.Any();
-
-            _clearBtn.IsEnabled = b;
-            _exportBtn.IsEnabled = b;
         }
 
         private async void BtnExportClick(object sender, RoutedEventArgs e)
@@ -156,45 +162,30 @@ namespace LoLAccountChecker.Views
                 exportErrors = dialog == MessageDialogResult.Affirmative;
             }
 
-
             Utils.ExportLogins(sfd.FileName, accounts, exportErrors);
 
             await this.ShowMessageAsync("Export", "All the accounts have been exported!");
         }
 
-        private async void CmEditClick(object sender, RoutedEventArgs e)
+        private void CmEditClick(object sender, RoutedEventArgs e)
         {
-            if (Checker.IsChecking)
-            {
-                await this.ShowMessageAsync("Error", "You can't edit accounts while checker is working.");
-                return;
-            }
-
-            if (_accountsGrid.SelectedItems.Count == 0)
+            if (AccountsDataGrid.SelectedItems.Count == 0)
             {
                 return;
             }
 
-            List<Account> selection = _accountsGrid.SelectedItems.Cast<Account>().ToList();
-
-            AccountEdit w = new AccountEdit(selection);
+            AccountEdit w = new AccountEdit(AccountsDataGrid.SelectedItems.Cast<Account>().ToList());
             w.ShowDialog();
         }
 
         private void CmCopyComboClick(object sender, RoutedEventArgs e)
         {
-            Common.CopyCombo(_accountsGrid);
+            Utils.AccountsDataGrid_RightClickCommand(sender, AccountsDataGrid);
         }
 
         private async void CmMakeUncheckedClick(object sender, RoutedEventArgs e)
         {
-            if (Checker.IsChecking)
-            {
-                await this.ShowMessageAsync("Error", "Command not accepted while checker is working.");
-                return;
-            }
-
-            if (_accountsGrid.SelectedItems.Count == 0)
+            if (AccountsDataGrid.SelectedItems.Count == 0)
             {
                 return;
             }
@@ -210,9 +201,9 @@ namespace LoLAccountChecker.Views
                 SecondAuxiliaryButtonText = "Yes to All"
             };
 
-            foreach (Account account in _accountsGrid.SelectedItems)
+            foreach (Account account in AccountsDataGrid.SelectedItems)
             {
-                if (_accountsGrid.SelectedItems.Count > 1)
+                if (AccountsDataGrid.SelectedItems.Count > 1)
                 {
                     if (account.State == Account.Result.Success)
                     {
@@ -251,12 +242,6 @@ namespace LoLAccountChecker.Views
                 }
                 else
                 {
-                    if (account.State == Account.Result.Unchecked)
-                    {
-                        await this.ShowMessageAsync("Make Unchecked", "This account has not been checked yet.");
-                        return;
-                    }
-
                     if (account.State == Account.Result.Success)
                     {
                         MessageDialogResult confirm = await this.ShowMessageAsync(
@@ -273,19 +258,11 @@ namespace LoLAccountChecker.Views
                     account.State = Account.Result.Unchecked;
                 }
             }
-
-            MainWindow.Instance.UpdateControls();
         }
 
         private async void CmRemoveClick(object sender, RoutedEventArgs e)
         {
-            if (Checker.IsChecking)
-            {
-                await this.ShowMessageAsync("Error", "Command not accepted while checker is working.");
-                return;
-            }
-
-            int selected = _accountsGrid.SelectedItems.Count;
+            int selected = AccountsDataGrid.SelectedItems.Count;
 
             if (selected == 0)
             {
@@ -311,35 +288,21 @@ namespace LoLAccountChecker.Views
                 return;
             }
 
-            foreach (Account account in _accountsGrid.SelectedItems)
+            foreach (Account account in AccountsDataGrid.SelectedItems.Cast<Account>().ToList())
             {
-                if (Checker.Accounts.Any(acc => acc.Username == account.Username))
-                {
-                    Checker.Accounts.Remove(account);
-                }
+                Checker.Accounts.Remove(account);
             }
-
-            MainWindow.Instance.UpdateControls();
         }
 
         private async void BtnClearAccountsClick(object sender, RoutedEventArgs e)
         {
-            if (Checker.IsChecking)
-            {
-                await this.ShowMessageAsync("Error", "Command not accepted while checker is working.");
-                return;
-            }
-
             MessageDialogResult confirm = await this.ShowMessageAsync("Remove", "Are you sure?", MessageDialogStyle.AffirmativeAndNegative);
 
             if (confirm == MessageDialogResult.Negative)
             {
                 return;
             }
-
             Checker.Accounts.Clear();
-
-            MainWindow.Instance.UpdateControls();
         }
     }
 }

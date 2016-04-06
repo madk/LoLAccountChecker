@@ -35,19 +35,19 @@ namespace LoLAccountChecker.Classes
 {
     internal static class LeagueData
     {
-        private static List<string> _files;
+        private static readonly List<string> Files;
 
         static LeagueData()
         {
-            _files = new List<string>
+            Files = new List<string>
             {
                 "Champions.json",
                 "Runes.json"
             };
 
-            for (int i = 0; i <= _files.Count - 1; i++)
+            for (int i = 0; i <= Files.Count - 1; i++)
             {
-                _files[i] = Path.Combine(Directory.GetCurrentDirectory(), "League", _files[i]);
+                Files[i] = Path.Combine(Directory.GetCurrentDirectory(), "League", Files[i]);
             }
         }
 
@@ -56,21 +56,21 @@ namespace LoLAccountChecker.Classes
 
         public static async Task Load()
         {
-            var b = _files.Where(f => File.Exists(f));
+            var b = Files.Where(File.Exists);
 
             if (!b.Any())
             {
-                MessageDialogResult dialog = await MainWindow.Instance.ShowMessageAsync("Error", "Missing data files.");
+                await MainWindow.Instance.ShowMessageAsync("Error", "Missing data files.");
                 MainWindow.Instance.Close();
                 return;
             }
 
-            using (StreamReader sr = new StreamReader(_files[0]))
+            using (StreamReader sr = new StreamReader(Files[0]))
             {
                 Champions = JsonConvert.DeserializeObject<List<Champion>>(sr.ReadToEnd());
             }
 
-            using (StreamReader sr = new StreamReader(_files[1]))
+            using (StreamReader sr = new StreamReader(Files[1]))
             {
                 Runes = JsonConvert.DeserializeObject<List<Rune>>(sr.ReadToEnd());
             }
@@ -84,27 +84,6 @@ namespace LoLAccountChecker.Classes
         public static Skin GetSkin(Champion champion, int id)
         {
             return champion.Skins.FirstOrDefault(s => s.Id == id);
-        }
-
-        public static string GetChampionImagePath(int championId)
-        {
-            string champStrID = Champions.FirstOrDefault(c => c.Id == championId).StrId;
-
-            if (champStrID == null)
-            {
-                return null;
-            }
-            
-            string imagesDir = Path.Combine(Directory.GetCurrentDirectory(), "League", "images");
-            
-            string imagePath = Path.Combine(imagesDir, string.Format("{0}.png", champStrID));
-
-            if (!File.Exists(imagePath))
-            {
-                return null;
-            }
-
-            return imagePath;
         }
     }
 }

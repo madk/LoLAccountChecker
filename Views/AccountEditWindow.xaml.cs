@@ -21,11 +21,10 @@
 
 #region
 
-using System;
 using System.Linq;
 using System.Windows;
 using LoLAccountChecker.Classes;
-using PVPNetConnect;
+using PVPNetClient;
 using System.Collections.Generic;
 
 #endregion
@@ -34,16 +33,16 @@ namespace LoLAccountChecker.Views
 {
     public partial class AccountEdit
     {
-        private List<Account> _accounts;
+        private readonly List<Account> _accounts;
 
         public AccountEdit(List<Account> accounts = null)
         {
             InitializeComponent();
 
-            RegionBox.ItemsSource = Enum.GetValues(typeof(Region)).Cast<Region>();
+            RegionBox.ItemsSource = PvpClient.GetAllAvailableRegions();
             RegionBox.SelectedItem = Settings.Config.SelectedRegion;
 
-            this._accounts = accounts;
+            _accounts = accounts;
 
             if (Settings.Config.ShowPasswords)
             {
@@ -58,9 +57,9 @@ namespace LoLAccountChecker.Views
                 PasswordBox.Visibility = Visibility.Visible;
             }
 
-            if (this._accounts != null)
+            if (_accounts != null)
             {
-                if (this._accounts.Count == 1)
+                if (_accounts.Count == 1)
                 {
                     UsernameBox.Text = _accounts[0].Username;
                     PasswordBox.Password = _accounts[0].Password;
@@ -87,7 +86,7 @@ namespace LoLAccountChecker.Views
                 return;
             }
 
-            if ((this._accounts != null) && (this._accounts.Count > 1))
+            if (_accounts?.Count > 1)
             {
                 foreach (Account acc in _accounts)
                 {
@@ -96,11 +95,10 @@ namespace LoLAccountChecker.Views
                     if ((account != null) && (account.Region != newRegion))
                     {
                         account.Region = newRegion;
+                        account.State = Account.Result.Unchecked;
                     }
                 }
-
-                this.RefreshControls();
-                this.Close();
+                Close();
             }
 
             string password = Settings.Config.ShowPasswords ? PasswordBoxText.Text : PasswordBox.Password;
@@ -111,7 +109,7 @@ namespace LoLAccountChecker.Views
                 return;
             }
 
-            if (this._accounts == null)
+            if (_accounts == null)
             {
                 if (Checker.Accounts.Any(a => a.Username.ToLower() == UsernameBox.Text.ToLower()))
                 {
@@ -150,24 +148,11 @@ namespace LoLAccountChecker.Views
                     account.Username = UsernameBox.Text;
                     account.Password = password;
                     account.Region = (Region)RegionBox.SelectedItem;
+                    account.State = Account.Result.Unchecked;
                     _accounts[0] = account;
                     ResultLabel.Content = "Account successfuly edited!";
                 }
             }
-
-            this.RefreshControls();
-        }
-
-        private void RefreshControls()
-        {
-            if (AccountsWindow.Instance != null)
-            {
-                AccountsWindow.Instance.UpdateControls();
-            }
-
-            MainWindow.Instance.UpdateControls();
-
-            Settings.Config.SelectedRegion = (Region)RegionBox.SelectedItem;
         }
     }
 }

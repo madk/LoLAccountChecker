@@ -2,8 +2,16 @@
                       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                       xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
-                      Title="LoL Account Checker" Height="500" Width="950" BorderBrush="#CC119EDA" BorderThickness="1"
+                      Title="LoL Account Checker" Height="600" Width="1024" BorderBrush="#CC119EDA" BorderThickness="1"
                       WindowStartupLocation="CenterScreen" >
+    <Window.Resources>
+        <Style TargetType="DataGridColumnHeader" x:Key="ColHeaderCenterH" BasedOn="{StaticResource MetroDataGridColumnHeader}">
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="CellCenterAlign">
+            <Setter Property="Control.HorizontalAlignment" Value="Center" />
+        </Style>
+    </Window.Resources>
     <Controls:MetroWindow.RightWindowCommands>
         <Controls:WindowCommands>
             <Button Click="BtnUpdateClick" Cursor="Hand">
@@ -48,36 +56,49 @@
         </Grid.RowDefinitions>
 
         <ProgressBar x:Name="ProgressBar" HorizontalAlignment="Stretch" VerticalAlignment="Top" Grid.Row="0" Height="7" />
-        
-        <DataGrid x:Name="AccountsDataGrid" Margin="0,7,0,0" HorizontalAlignment="Stretch"
-                  VerticalAlignment="Stretch" ItemsSource="{Binding Checker.Accounts, NotifyOnSourceUpdated=True}"
+
+        <DataGrid x:Name="AccountsDataGrid" Margin="5,7,5,0" ColumnWidth="Auto"
+                  ItemsSource="{Binding Checker.Accounts, NotifyOnSourceUpdated=True}"
+                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                   AutoGenerateColumns="False" Grid.Row="0"
                   IsReadOnly="True" GridLinesVisibility="All"
                   BorderBrush="LightGray" BorderThickness="0,1"
-                  MouseDoubleClick="Row_DoubleClick">
-
+                  MouseDoubleClick="Row_DoubleClick"
+                  ColumnHeaderStyle="{StaticResource ColHeaderCenterH}">
             <DataGrid.Columns>
                 <DataGridTextColumn Binding="{Binding Username}" Header="Username" />
-                <DataGridTextColumn Binding="{Binding Summoner}" Header="Summoner Name" Width="*" />
-                <DataGridTextColumn Binding="{Binding Level}" Header="Level" />
-                <DataGridTextColumn Binding="{Binding EmailStatus}" Header="Email Status" />
-                <DataGridTextColumn Binding="{Binding RpBalance}" Header="RP" />
-                <DataGridTextColumn Binding="{Binding IpBalance}" Header="IP" />
-                <DataGridTextColumn Binding="{Binding Champions}" Header="Champions" />
-                <DataGridTextColumn Binding="{Binding Skins}" Header="Skins" />
-                <DataGridTextColumn Binding="{Binding RunePages}" Header="Rune Pages" />
-                <DataGridTextColumn Binding="{Binding Refunds}" Header="Refunds" />
-                <DataGridTextColumn Binding="{Binding SoloQRank}" Header="Rank" />
-                <DataGridTextColumn Binding="{Binding LastPlay, StringFormat=\{0:dd-MM-yyyy HH:mm\}}" Header="Last Play" Width="100" />
+                <DataGridTextColumn Binding="{Binding Summoner}" Header="Summoner" />
+                <DataGridTextColumn Binding="{Binding Region}" Header="Region" />
+                <DataGridTextColumn ElementStyle="{StaticResource CellCenterAlign}"
+                                    Binding="{Binding Level}" Header="Level" />
+                <DataGridTextColumn Binding="{Binding EmailStatus}" Header="Email&#x0a;Status" />
+                <DataGridTextColumn ElementStyle="{StaticResource CellCenterAlign}"
+                                    Binding="{Binding RpBalance}" Header="RP" />
+                <DataGridTextColumn ElementStyle="{StaticResource CellCenterAlign}"
+                                    Binding="{Binding IpBalance}" Header="IP" />
+                <DataGridTextColumn ElementStyle="{StaticResource CellCenterAlign}"
+                                    Binding="{Binding Champions}" Header="Champs" />
+                <DataGridTextColumn ElementStyle="{StaticResource CellCenterAlign}"
+                                    Binding="{Binding Skins}" Header="Skins" />
+                <DataGridTextColumn ElementStyle="{StaticResource CellCenterAlign}"
+                                    Binding="{Binding RunePages}" Header="Rune&#x0a;Pages" />
+                <DataGridTextColumn ElementStyle="{StaticResource CellCenterAlign}"
+                                    Binding="{Binding Refunds}" Header="Refunds" />
+                <DataGridTextColumn Binding="{Binding PreviousSeasonRank}" Header="Previous&#x0a;Rank" />
+                <DataGridTextColumn Binding="{Binding SoloQRank}" Header="Current&#x0a;Rank" />
+                <DataGridTextColumn ElementStyle="{StaticResource CellCenterAlign}" MinWidth="100"
+                                    Binding="{Binding LastPlay, StringFormat=\{0:dd-MM-yyyy HH:mm\}}" Header="Last Play" />
             </DataGrid.Columns>
             <DataGrid.ContextMenu>
                 <ContextMenu>
                     <MenuItem Header="View" Click="CmViewAccount" />
                     <Separator HorizontalAlignment="Stretch" IsEnabled="false"/>
-                    <MenuItem Header="Copy Username" Click="CmCopyUsername" />
-                    <MenuItem Header="Copy Password" Click="CmCopyPassword" />
-                    <MenuItem Header="Copy Combo" Click="CmCopyCombo" />
-                    <MenuItem Header="Copy Summoner Name" Click="CmCopySummoner" />
+                    <MenuItem Header="Copy Username" Tag="Username" Click="AccountsDataGrid_Cm" />
+                    <MenuItem Header="Copy Password" Tag="Password" Click="AccountsDataGrid_Cm" />
+                    <MenuItem Header="Copy Combo" Tag="Username,Password" Click="AccountsDataGrid_Cm" />
+                    <MenuItem Header="Copy Summoner Name" Tag="Summoner" Click="AccountsDataGrid_Cm" />
+                    <MenuItem Header="Copy Summoner ID" Tag="SummonerId" Click="AccountsDataGrid_Cm" />
+                    <MenuItem Header="Copy Account ID" Tag="AccountId" Click="AccountsDataGrid_Cm" />
                     <Separator HorizontalAlignment="Stretch" IsEnabled="false"/>
                     <MenuItem Header="Export JSON" Click="CmExportJson" />
                     <MenuItem Header="Export Custom" Click="CmExportCustom" />
@@ -100,7 +121,7 @@
                 Grid.Row="1" Width="100" Click="BtnImportClick" Height="26" VerticalAlignment="Bottom" />
         <Button x:Name="ExportButton" Content="Export" HorizontalAlignment="Right" Height="26" Margin="0,0,120,5"
                 Grid.Row="1" VerticalAlignment="Bottom" Width="100" Click="BtnExportToFileClick" IsEnabled="False" />
-        <Button x:Name="SearchButton" Content="Search" HorizontalAlignment="Right" Height="26" Margin="0,0,10,5"
-                Grid.Row="1" VerticalAlignment="Bottom" Width="100" Click="BtnSearchClick" IsEnabled="False" />
+        <Button x:Name="FilterButton" Content="Filter" HorizontalAlignment="Right" Height="26" Margin="0,0,10,5"
+                Grid.Row="1" VerticalAlignment="Bottom" Width="100" Click="BtnFilterClick" IsEnabled="False" />
     </Grid>
 </Controls:MetroWindow>

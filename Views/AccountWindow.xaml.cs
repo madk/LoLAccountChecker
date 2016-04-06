@@ -45,7 +45,7 @@ namespace LoLAccountChecker.Views
 
             mAccount = account;
 
-            Title = string.Format("{0} - View account", this.mAccount.Username);
+            Title = string.Format("{0} - View account", mAccount.Username);
 
             SortingBoxChamps.ItemsSource = new string[] { "Name", "Purchase Date", "With Skin(s)" };
             SortingBoxChamps.SelectedIndex = 0;

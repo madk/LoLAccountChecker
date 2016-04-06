@@ -21,9 +21,11 @@
 
 #region
 
+using System;
 using System.IO;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
-using PVPNetConnect;
+using PVPNetClient;
 
 #endregion
 
@@ -31,15 +33,13 @@ namespace LoLAccountChecker
 {
     internal class Settings
     {
-        private static string _file;
-
+        private const string File = "settings.json";
         public static Settings Config;
+        public static TaskFactory TaskFactory;
 
         static Settings()
         {
-            _file = "settings.json";
-
-            if (!File.Exists(_file))
+            if (!System.IO.File.Exists(File))
             {
                 Config = new Settings
                 {
@@ -50,15 +50,18 @@ namespace LoLAccountChecker
                 return;
             }
             Load();
+            TaskFactory = new TaskFactory(new LimitedConcurrencyLevelTaskScheduler(Environment.ProcessorCount));
         }
 
         public bool ShowPasswords { get; set; }
         public Region SelectedRegion { get; set; }
         public string ClientVersion { get; set; }
+        public string DataDragonVersion { get; set; }
+        public string DefaultCustomExportFilename { get; set; }
 
         public static void Save()
         {
-            using (StreamWriter sw = new StreamWriter(_file))
+            using (StreamWriter sw = new StreamWriter(File))
             {
                 sw.Write(JsonConvert.SerializeObject(Config, Formatting.Indented));
             }
@@ -66,7 +69,7 @@ namespace LoLAccountChecker
 
         public static void Load()
         {
-            using (StreamReader sr = new StreamReader(_file))
+            using (StreamReader sr = new StreamReader(File))
             {
                 Config = JsonConvert.DeserializeObject<Settings>(sr.ReadToEnd());
             }

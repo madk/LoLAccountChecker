@@ -16,7 +16,7 @@ namespace ImageLoader.ImageLoaders
         {
             try
             {
-                HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(this.url);
+                HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(url);
                 webRequest.Timeout = 5 * 1000;
 
                 byte[] byteStream = null;

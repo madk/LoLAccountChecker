@@ -21,23 +21,12 @@ Then, click on **Start** to start checking. Your account's should start appearin
  
 You can also import and export checked accounts that you want to see later.
 
-* Summoner name
-* Level
-* RP
-* IP
-* Champions
-* Skins
-* Rune Pages
-* Email Status
-* SoloQ Rank
-* Date of Last Match Played
-
 ### Requirements:
  * Windows 7 or later
  * [.NET Framework 4.5](https://www.microsoft.com/en-us/download/details.aspx?id=30653) or later
- * [PvPNetConnect](https://github.com/DarkActive/PVPNetConnect)
+ * [rtmp-sharp](https://github.com/imiuka/rtmp-sharp)
 
 ### Export
-You can export your accounts to a JSON file (this way you can import it later), or by creating your own layout. Check [Custom Export](https://github.com/yokrysty/LoLAccountChecker/blob/master/Custom%20Export.md) to see the variables and some examples.
+You can export your accounts to a JSON file (this way you can import it later), or by creating your own layout.
 
 [![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=X9559SH2MKQ7S)

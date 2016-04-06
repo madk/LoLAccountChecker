@@ -33,11 +33,23 @@ namespace LoLAccountChecker.Classes
         public int Id { get; set; }
         public string Name { get; set; }
         public DateTime PurchaseDate { get; set; }
-        
+        public int Skins { get; set; }
+
         [JsonIgnore]
-        public string ImagePath
+        public string ImageUrl
         {
-            get { return LeagueData.GetChampionImagePath(this.Id); }
+            get
+            {
+                try
+                {
+                    string strId = LeagueData.GetChampion(Id).StrId;
+                    return $"http://ddragon.leagueoflegends.com/cdn/{Settings.Config.DataDragonVersion}/img/champion/{strId}.png";
+                }
+                catch
+                {
+                    return null;
+                }
+            }
         }
 
         [JsonIgnore]
