@@ -2,8 +2,8 @@
   "ShowPasswords": true,
   "SelectedRegion": 2,
   "ClientVersion": "6.11.16_05_26_22_56",
-  "PBEClientVersion": null,
-  "DataDragonVersion": "6.10.1",
+  "PBEClientVersion": "6.12.16_06_02_04_39",
+  "DataDragonVersion": "6.11.1",
   "DefaultCustomExportFilename": "DefaultText.txt",
   "CheckForPenaltyTime": true,
   "BanDaysToIgnore": 15
