@@ -27,9 +27,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using LoLAccountChecker.Views;
-using MahApps.Metro.Controls.Dialogs;
-using PVPNetConnect;
 
 #endregion
 
@@ -37,51 +34,37 @@ namespace LoLAccountChecker.Classes
 {
     internal class Utils
     {
-        public static List<Account> GetLogins(string file)
+        public static List<string[]> GetLogins(string file)
         {
-            var logins = new List<Account>();
+            List<string[]> accounts = new List<string[]>();
 
-            var sr = new StreamReader(file);
-            string line;
-            while ((line = sr.ReadLine()) != null)
+            StreamReader sr = new StreamReader(file);
+
+            while (!sr.EndOfStream)
             {
-                var accountData = line.Split(new[] { ':' });
+                string line = sr.ReadLine();
 
-                if (accountData.Count() < 2)
+                if (string.IsNullOrEmpty(line) || line.StartsWith("#"))
                 {
                     continue;
                 }
 
-                Region region;
-                if (accountData.Count() < 3 || !Enum.TryParse(accountData[2], true, out region))
-                {
-                    region = Settings.Config.SelectedRegion;
-                }
-
-                var loginData = new Account
-                {
-                    Username = accountData[0],
-                    Password = accountData[1],
-                    State = Account.Result.Unchecked,
-                    Region = region
-                };
-
-                logins.Add(loginData);
+                accounts.Add(line.Split(new[] { ':' }));
             }
 
-            return logins;
+            return accounts;
         }
 
         public static void ExportLogins(string file, List<Account> accounts, bool exportErrors)
         {
-            using (var sw = new StreamWriter(file))
+            using (StreamWriter sw = new StreamWriter(file))
             {
                 if (!exportErrors)
                 {
                     accounts = accounts.Where(a => a.State == Account.Result.Success).ToList();
                 }
 
-                foreach (var account in accounts)
+                foreach (Account account in accounts)
                 {
                     sw.WriteLine("{0}:{1}", account.Username, account.Password);
                 }
@@ -90,14 +73,14 @@ namespace LoLAccountChecker.Classes
 
         public static void ExportException(Exception e)
         {
-            var dir = Path.Combine(Directory.GetCurrentDirectory(), "Logs");
+            string dir = Path.Combine(Directory.GetCurrentDirectory(), "Logs");
 
             if (!Directory.Exists(dir))
             {
                 Directory.CreateDirectory(dir);
             }
 
-            var file = string.Format("crash_{0:dd-MM-yyyy_HH-mm-ss}.txt", DateTime.Now);
+            string file = string.Format("crash_{0:dd-MM-yyyy_HH-mm-ss}.txt", DateTime.Now);
 
             using (var sw = new StreamWriter(Path.Combine(dir, file)))
             {
@@ -105,49 +88,9 @@ namespace LoLAccountChecker.Classes
             }
         }
 
-        public static async Task UpdateClientVersion()
+        public static async Task<string> GetHtmlResponse(string url, CookieContainer cookieContainer = null)
         {
-            using (var wc = new WebClient())
-            {
-                try
-                {
-                    var clientVersion =
-                        wc.DownloadString(
-                            "https://raw.githubusercontent.com/madk/LoLAccountChecker/master/League/Client.version");
-
-                    if (Settings.Config.ClientVersion == null)
-                    {
-                        Settings.Config.ClientVersion = clientVersion;
-                        return;
-                    }
-
-                    if (clientVersion == Settings.Config.ClientVersion)
-                    {
-                        return;
-                    }
-
-                    var result =
-                        await
-                            MainWindow.Instance.ShowMessageAsync(
-                                "Client version outdated",
-                                "The client version of League of Legends looks different, do you wanna update it?",
-                                MessageDialogStyle.AffirmativeAndNegative);
-
-                    if (result == MessageDialogResult.Affirmative)
-                    {
-                        Settings.Config.ClientVersion = clientVersion;
-                    }
-                }
-                catch
-                {
-                    // ignore
-                }
-            }
-        }
-
-        public static string GetHtmlResponse(string url, CookieContainer cookieContainer = null)
-        {
-            var wr = (HttpWebRequest) WebRequest.Create(url);
+            HttpWebRequest wr = (HttpWebRequest)WebRequest.Create(url);
 
             if (cookieContainer != null)
             {
@@ -158,25 +101,30 @@ namespace LoLAccountChecker.Classes
             {
                 string html;
 
-                using (var resp = wr.GetResponse())
+                using (WebResponse resp = await wr.GetResponseAsync())
+                using (Stream stream = resp.GetResponseStream())
+                using (StreamReader sr = new StreamReader(stream))
                 {
-                    using (var sr = new StreamReader(resp.GetResponseStream()))
-                    {
-                        html = sr.ReadToEnd();
-                    }
+                    html = await sr.ReadToEndAsync();
                 }
 
                 return html;
             }
             catch (WebException e)
             {
-                using (var response = e.Response)
+                using (WebResponse response = e.Response)
                 {
-                    var resp = (HttpWebResponse) response;
+                    HttpWebResponse resp = (HttpWebResponse)response;
+                    Console.WriteLine(resp);
                 }
 
                 return string.Empty;
             }
+        }
+
+        public static string PrepStringForCompare(string s)
+        {
+            return s.Replace(":", "").Replace(" ", "").ToLower();
         }
     }
 }

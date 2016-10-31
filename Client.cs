@@ -28,7 +28,10 @@ using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using LoLAccountChecker.Classes;
-using PVPNetConnect;
+using PVPNetClient;
+using PVPNetClient.RiotObjects.Platform;
+using RtmpSharp.IO;
+using RtmpSharp.Net;
 
 #endregion
 
@@ -36,12 +39,12 @@ namespace LoLAccountChecker
 {
     public class Client
     {
-        public PVPNetConnection Connection;
+        private readonly PvpClient _pvpnet;
         public Account Data;
 
         public TaskCompletionSource<bool> IsCompleted;
 
-        public Client(Region region, string username, string password)
+        public Client(Region region, string username, string password, string ip, SerializationContext context)
         {
             Data = new Account
             {
@@ -53,233 +56,245 @@ namespace LoLAccountChecker
 
             IsCompleted = new TaskCompletionSource<bool>();
 
-            Connection = new PVPNetConnection();
-            Connection.OnLogin += OnLogin;
-            Connection.OnError += OnError;
+            _pvpnet = new PvpClient(username, password, region, Settings.Config.ClientVersion)
+            {
+                SerializationContext = context,
+                LoLIpAddress = ip
+            };
+            _pvpnet.OnError += OnError;
 
-            Connection.Connect(username, password, region, Settings.Config.ClientVersion);
+            GetData();
         }
 
         public void Disconnect()
         {
-            if (!Connection.IsConnected())
+            if (_pvpnet.IsConnected)
             {
-                return;
+                try
+                {
+                    _pvpnet.Disconnect();
+                }
+                catch
+                {
+                    
+                }
             }
-
-            Connection.Disconnect();
-        }
-
-        private void OnLogin(object sender, string username, string ipAddress)
-        {
-            GetData();
         }
 
         private void OnError(object sender, Error error)
         {
             Data.ErrorMessage = error.Message;
-
             Data.State = Account.Result.Error;
-
             IsCompleted.TrySetResult(true);
         }
 
-        public async void GetData()
+        private async void GetData()
         {
+            if (!await _pvpnet.ConnectAndLogin())
+            {
+                return;
+            }
+
             try
             {
-                var loginPacket = await Connection.GetLoginDataPacketForUser();
+                var loginDataPacket = await _pvpnet.GetLoginDataPacketForUser();
 
-                if (loginPacket.AllSummonerData == null)
+                if (loginDataPacket.AllSummonerData == null)
                 {
-                    Data.ErrorMessage = "Summoner not created.";
-                    Data.State = Account.Result.Error;
-
-                    IsCompleted.TrySetResult(true);
+                    OnError(this, new Error
+                    {
+                        Message = "Summoner Not Created",
+                        Type = ErrorType.Login
+                    });
                     return;
                 }
 
-                await GetChampions();
-                await GetStoreData();
-
-                GetRunes(loginPacket.AllSummonerData.Summoner.SumId);
-
-                Data.Summoner = loginPacket.AllSummonerData.Summoner.Name;
-                Data.Level = (int) loginPacket.AllSummonerData.SummonerLevel.Level;
-                Data.RpBalance = (int) loginPacket.RpBalance;
-                Data.IpBalance = (int) loginPacket.IpBalance;
-                Data.RunePages = loginPacket.AllSummonerData.SpellBook.BookPages.Count;
-
-                if (loginPacket.EmailStatus != null)
+                List<Task> tasks = new List<Task>
                 {
-                    var emailStatus = loginPacket.EmailStatus.Replace('_', ' ');
-                    Data.EmailStatus = Char.ToUpper(emailStatus[0]) + emailStatus.Substring(1);
-                }
-                else
-                {
-                    Data.EmailStatus = "Unknown";
-                }
+                    GetLoginData(loginDataPacket),
+                    _pvpnet.GetStoreUrl().ContinueWith(url => GetStoreData(url.Result)),
+                    GetChampions(),
+                    GetRunes(loginDataPacket.AllSummonerData.Summoner.SummonerId)
+                };
 
-                // Leagues
-                if (Data.Level == 30)
-                {
-                    var myLeagues = await Connection.GetMyLeaguePositions();
-                    var soloqLeague = myLeagues.SummonerLeagues.FirstOrDefault(l => l.QueueType == "RANKED_SOLO_5x5");
-                    Data.SoloQRank = soloqLeague != null
-                        ? string.Format(
-                            "{0}{1} {2}", char.ToUpper(soloqLeague.Tier[0]), soloqLeague.Tier.Substring(1).ToLower(),
-                            soloqLeague.Rank)
-                        : "Unranked";
-                }
-                else
-                {
-                    Data.SoloQRank = "Unranked";
-                }
-
-                // Last Play
-                var recentGames = await Connection.GetRecentGames(loginPacket.AllSummonerData.Summoner.AcctId);
-                var lastGame = recentGames.GameStatistics.FirstOrDefault();
-
-                if (lastGame != null)
-                {
-                    Data.LastPlay = lastGame.CreateDate;
-                }
+                await Task.WhenAll(tasks.ToArray());
 
                 Data.CheckedTime = DateTime.Now;
                 Data.State = Account.Result.Success;
             }
+            catch (ClientDisconnectedException)
+            {
+                Data.ErrorMessage = "Server is Busy. Try Again Later.";
+                Data.State = Account.Result.Error;
+            }
             catch (Exception e)
             {
                 Utils.ExportException(e);
-                Data.ErrorMessage = string.Format("Exception found: {0}", e.Message);
+                Data.ErrorMessage = $"Exception found: {e.Message}";
                 Data.State = Account.Result.Error;
             }
-
             IsCompleted.TrySetResult(true);
         }
 
-        private async Task GetStoreData()
+        private async Task GetLoginData(LoginDataPacket loginDataPacket)
+        {
+            Data.AccountId = (int)loginDataPacket.AllSummonerData.Summoner.AccountId;
+            Data.Summoner = loginDataPacket.AllSummonerData.Summoner.Name;
+            Data.SummonerId = (int)loginDataPacket.AllSummonerData.Summoner.SummonerId;
+            Data.Level = (int)loginDataPacket.AllSummonerData.SummonerLevel.Level;
+            Data.RpBalance = (int)loginDataPacket.RpBalance;
+            Data.IpBalance = (int)loginDataPacket.IpBalance;
+            Data.RunePages = loginDataPacket.AllSummonerData.SpellBook.BookPages.Count;
+            Data.LastPlay = loginDataPacket.AllSummonerData.Summoner.LastGameDate;
+
+            if (loginDataPacket.EmailStatus != null)
+            {
+                var emailStatus = loginDataPacket.EmailStatus.Replace('_', ' ');
+                Data.EmailStatus = char.ToUpper(emailStatus[0]) + emailStatus.Substring(1);
+            }
+            else
+            {
+                Data.EmailStatus = "Unknown";
+            }
+
+            string prevSeasonRank = loginDataPacket.AllSummonerData.Summoner.PreviousSeasonHighestTier;
+
+            Data.PreviousSeasonRank = !string.IsNullOrEmpty(prevSeasonRank) 
+                ? prevSeasonRank[0] + prevSeasonRank.Substring(1).ToLower()
+                : "Unranked";
+
+            if (Data.Level == 30)
+            {
+                var myLeagues = await _pvpnet.GetMyLeaguePositions();
+                var soloqLeague = myLeagues.SummonerLeagues.FirstOrDefault(l => l.QueueType == "RANKED_SOLO_5x5");
+                Data.SoloQRank = soloqLeague != null
+                    ? $"{char.ToUpper(soloqLeague.Tier[0])}{soloqLeague.Tier.Substring(1).ToLower()} {soloqLeague.Rank}"
+                    : "Unranked";
+            }
+            else
+            {
+                Data.SoloQRank = "Unranked";
+            }
+        }
+
+        private async Task GetStoreData(string storeUrl)
         {
             Data.Transfers = new List<TransferData>();
 
-            // Regex
-            var regexTransfers = new Regex("\\\'account_transfer(.*)\\\'\\)", RegexOptions.Multiline);
-            var regexTransferData = new Regex("rp_cost\\\":(.*?),(?:.*)name\\\":\\\"(.*?)\\\"");
-            var regexRefunds = new Regex("credit_counter\\\">(\\d[1-3]?)<");
-            var regexRegion = new Regex("\\.(.*?)\\.");
-
-            var storeUrl = await Connection.GetStoreUrl();
+            Regex regexTransfers = new Regex("\\\'account_transfer(.*)\\\'\\)", RegexOptions.Multiline);
+            Regex regexTransferData = new Regex("rp_cost\\\":(.*?),(?:.*)name\\\":\\\"(.*?)\\\"");
+            Regex regexRefunds = new Regex("credit_counter\\\">(\\d[1-3]?)<");
+            Regex regexRegion = new Regex("\\.(.*?)\\.");
 
             var region = regexRegion.Match(storeUrl).Groups[1];
 
-            var storeUrlMisc = string.Format("https://store.{0}.lol.riotgames.com/store/tabs/view/misc", region);
-            var storeUrlHist = string.Format(
-                "https://store.{0}.lol.riotgames.com/store/accounts/rental_history", region);
+            string storeUrlMisc = $"https://store.{region}.lol.riotgames.com/store/tabs/view/misc";
+            string storeUrlHist = $"https://store.{region}.lol.riotgames.com/store/accounts/rental_history";
 
-            var cookies = new CookieContainer();
+            CookieContainer cookies = new CookieContainer();
 
-            Utils.GetHtmlResponse(storeUrl, cookies);
+            await Utils.GetHtmlResponse(storeUrl, cookies);
 
-            var miscHtml = Utils.GetHtmlResponse(storeUrlMisc, cookies);
-            var histHtml = Utils.GetHtmlResponse(storeUrlHist, cookies);
+            string miscHtml = await Utils.GetHtmlResponse(storeUrlMisc, cookies);
+            string histHtml = await Utils.GetHtmlResponse(storeUrlHist, cookies);
 
-            // Transfers
             foreach (Match match in regexTransfers.Matches(miscHtml))
             {
                 var data = regexTransferData.Matches(match.Value);
 
                 var transfer = new TransferData
                 {
-                    Price = Int32.Parse(data[0].Groups[1].Value.Replace("\"", "")),
+                    Price = int.Parse(data[0].Groups[1].Value.Replace("\"", "")),
                     Name = data[0].Groups[2].Value
                 };
 
                 Data.Transfers.Add(transfer);
             }
 
-            // Refunds credits
             if (regexRefunds.IsMatch(histHtml))
             {
-                Data.Refunds = Int32.Parse(regexRefunds.Match(histHtml).Groups[1].Value);
+                Data.Refunds = int.Parse(regexRefunds.Match(histHtml).Groups[1].Value);
             }
         }
 
         private async Task GetChampions()
         {
-            var champions = await Connection.GetAvailableChampions();
+            var champions = await _pvpnet.GetAvailableChampions();
 
             Data.ChampionList = new List<ChampionData>();
             Data.SkinList = new List<SkinData>();
 
-            foreach (var champion in champions)
+            foreach (ChampionDTO champion in champions.Where(champ => champ.Owned))
             {
-                var championData = LeagueData.Champions.FirstOrDefault(c => c.Id == champion.ChampionId);
+                Champion championData = LeagueData.Champions.FirstOrDefault(c => c.Id == champion.ChampionId);
 
                 if (championData == null)
                 {
                     continue;
                 }
 
-                if (champion.Owned)
+                Data.ChampionList.Add(new ChampionData
                 {
-                    Data.ChampionList.Add(
-                        new ChampionData
-                        {
-                            Id = championData.Id,
-                            Name = championData.Name,
-                            PurchaseDate =
-                                new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(
-                                    Math.Round(champion.PurchaseDate / 1000d))
-                        });
-                }
+                    Id = championData.Id,
+                    Name = championData.Name,
+                    PurchaseDate = new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(Math.Round(champion.PurchaseDate / 1000d))
+                });
 
                 foreach (var skin in champion.ChampionSkins.Where(skin => skin.Owned))
                 {
-                    var skinData = championData.Skins.FirstOrDefault(s => s.Id == skin.SkinId);
+                    Skin skinData = championData.Skins.FirstOrDefault(s => s.Id == skin.SkinId);
 
                     if (skinData == null)
                     {
                         continue;
                     }
 
-                    Data.SkinList.Add(
-                        new SkinData
-                        {
-                            Id = skinData.Id,
-                            Name = skinData.Name,
-                            StillObtainable = skin.StillObtainable,
-                            ChampionId = championData.Id
-                        });
+                    Data.SkinList.Add(new SkinData
+                    {
+                        Id = skinData.Id,
+                        Name = skinData.Name,
+                        StillObtainable = skin.StillObtainable,
+                        ChampionId = championData.Id,
+                        PurchaseDate = new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(Math.Round(skin.PurchaseDate / 1000d))
+                    });
+                }
+
+                foreach (ChampionData champ in Data.ChampionList)
+                {
+                    List<SkinData> skins = Data.SkinList.Where(c => c.ChampionId == champ.Id).ToList();
+                    champ.HasSkin = skins.Count > 0;
+                    champ.Skins = skins.Count;
                 }
             }
         }
 
-        private async void GetRunes(double summmonerId)
+        private async Task GetRunes(double summmonerId)
         {
             Data.Runes = new List<RuneData>();
 
-            var runes = await Connection.GetSummonerRuneInventory(summmonerId);
-            if (runes != null)
+            var runes = await _pvpnet.GetSummonerRuneInventory(summmonerId);
+
+            if(runes == null)
             {
-                foreach (var rune in runes.SummonerRunes)
+                return;
+            }
+
+            foreach (SummonerRune rune in runes.SummonerRunes)
+            {
+                var runeData = LeagueData.Runes.FirstOrDefault(r => r.Id == rune.RuneId);
+
+                if (runeData == null)
                 {
-                    var runeData = LeagueData.Runes.FirstOrDefault(r => r.Id == rune.RuneId);
-
-                    if (runeData == null)
-                    {
-                        continue;
-                    }
-
-                    var rn = new RuneData
-                    {
-                        Name = runeData.Name,
-                        Description = runeData.Description,
-                        Quantity = rune.Quantity,
-                        Tier = runeData.Tier
-                    };
-
-                    Data.Runes.Add(rn);
+                    continue;
                 }
+
+                Data.Runes.Add(new RuneData
+                {
+                    Name = runeData.Name,
+                    Description = runeData.Description,
+                    Quantity = rune.Quantity,
+                    Tier = runeData.Tier
+                });
             }
         }
     }

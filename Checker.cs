@@ -21,45 +21,75 @@
 
 #region
 
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
+using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using LoLAccountChecker.Classes;
 using LoLAccountChecker.Views;
+using PVPNetClient;
+using RtmpSharp.IO;
 
 #endregion
 
 namespace LoLAccountChecker
 {
-    internal delegate void NewAccount(Account accout);
+    internal delegate void NewAccount(Account account);
 
     internal static class Checker
     {
-        static Checker()
-        {
-            Accounts = new List<Account>();
-            IsChecking = false;
-        }
-
-        public static List<Account> Accounts { get; set; }
+        public static ObservableCollection<Account> Accounts = new ObservableCollection<Account>();
+        static readonly ConcurrentQueue<KeyValuePair<int, Account>> Queue = new ConcurrentQueue<KeyValuePair<int, Account>>();        
+        private static readonly SerializationContext Context = PvpClient.GetContext();
+        private static readonly string LoLIp = PvpClient.GetLoLIpAddress();
         public static bool IsChecking { get; private set; }
+        public static CancellationTokenSource CancellationTokenSource { get; private set; }
 
-        public static void Start()
+        public static async void Start()
         {
             if (IsChecking)
             {
                 return;
             }
 
+            CancellationTokenSource = new CancellationTokenSource();
+
             IsChecking = true;
+            MainWindow.Instance.UpdateControls();
 
-            var thread = new Thread(Handler)
+            await Task.Run(() =>
             {
-                IsBackground = true
-            };
+                if (!Queue.IsEmpty)
+                {
+                    Queue.Clear();
+                }
 
-            thread.Start();
+                for (int i = 0; i <= Accounts.Count - 1; i++)
+                {
+                    if (Accounts[i].State == Account.Result.Unchecked)
+                    {
+                        Queue.Enqueue(new KeyValuePair<int, Account>(i, Accounts[i]));
+                    }
+                }
+            });
+
+            if (!Queue.IsEmpty)
+            {
+                Task[] tasks = new Task[Environment.ProcessorCount];
+                for (int i = 0; i <= tasks.Length - 1; i++)
+                {
+                    tasks[i] = Task.Run(() => CheckAccount());
+                }
+
+                await Task.WhenAll(tasks);
+            }
+
+            IsChecking = false;
+            CancellationTokenSource = null;
+            MainWindow.Instance.UpdateControls();
         }
 
         public static void Stop()
@@ -68,70 +98,34 @@ namespace LoLAccountChecker
             {
                 return;
             }
-
-            IsChecking = false;
-
-            MainWindow.Instance.UpdateControls();
-
-            if (AccountsWindow.Instance != null)
-            {
-                AccountsWindow.Instance.RefreshAccounts();
-            }
+            CancellationTokenSource.Cancel();
         }
 
-        public static void Refresh(bool e = false)
+        private static void CheckAccount()
         {
-            if (IsChecking)
+            while (!Queue.IsEmpty)
             {
-                return;
-            }
-
-            IsChecking = true;
-
-            foreach (var account in Accounts.Where(a => a.State == Account.Result.Success || e))
-            {
-                account.State = Account.Result.Unchecked;
-            }
-
-            Start();
-        }
-
-        private static async void Handler()
-        {
-            while (Accounts.Any(a => a.State == Account.Result.Unchecked))
-            {
-                if (!IsChecking)
+                if (CancellationTokenSource.IsCancellationRequested)
                 {
                     break;
                 }
-                var account = Accounts.FirstOrDefault(a => a.State == Account.Result.Unchecked);
 
-                if (account == null)
+                KeyValuePair<int, Account> item;
+
+                if (Queue.TryDequeue(out item))
                 {
-                    continue;
-                }
+                    Account account = item.Value;
 
-                var i = Accounts.FindIndex(a => a.Username == account.Username);
-                Accounts[i] = await CheckAccount(account);
+                    Client client = new Client(account.Region, account.Username, account.Password, LoLIp, Context);
+                    client.IsCompleted.Task.Wait();
+                    client.Disconnect();
 
-                MainWindow.Instance.UpdateControls();
-
-                if (AccountsWindow.Instance != null)
-                {
-                    AccountsWindow.Instance.RefreshAccounts();
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        Accounts[item.Key] = client.Data;
+                    });
                 }
             }
-
-            Stop();
-        }
-
-        public static async Task<Account> CheckAccount(Account account)
-        {
-            var client = new Client(account.Region, account.Username, account.Password);
-
-            await client.IsCompleted.Task;
-
-            return client.Data;
         }
     }
 }

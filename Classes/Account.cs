@@ -24,13 +24,13 @@
 using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
-using PVPNetConnect;
+using PVPNetClient;
 
 #endregion
 
 namespace LoLAccountChecker.Classes
 {
-    public class Account
+    public class Account : BaseViewModel
     {
         public enum Result
         {
@@ -39,8 +39,22 @@ namespace LoLAccountChecker.Classes
             Error
         }
 
-        public string Username { get; set; }
-        public string Password { get; set; }
+        public int AccountId { get; set; }
+
+        private string _username;
+        public string Username
+        {
+            get { return _username; }
+            set { SetAndNotify(ref _username, value, nameof(Username)); }
+        }
+
+        private string _password;
+        public string Password
+        {
+            get { return _password; }
+            set { SetAndNotify(ref _password, value, nameof(Password)); }
+        }
+        public int SummonerId { get; set; }
         public string Summoner { get; set; }
         public int Level { get; set; }
         public string EmailStatus { get; set; }
@@ -48,6 +62,7 @@ namespace LoLAccountChecker.Classes
         public int IpBalance { get; set; }
         public int RunePages { get; set; }
         public int Refunds { get; set; }
+        public string PreviousSeasonRank { get; set; }
         public string SoloQRank { get; set; }
         public DateTime LastPlay { get; set; }
         public DateTime CheckedTime { get; set; }
@@ -56,34 +71,44 @@ namespace LoLAccountChecker.Classes
         public List<RuneData> Runes { get; set; }
         public List<TransferData> Transfers { get; set; }
         public string ErrorMessage { get; set; }
-        public Result State { get; set; }
-        public Region Region { get; set; }
 
-        [JsonIgnore]
-        public int Champions
+        private Result _state;
+        public Result State
         {
-            get { return ChampionList != null ? ChampionList.Count : 0; }
-        }
-
-        [JsonIgnore]
-        public int Skins
-        {
-            get { return SkinList != null ? SkinList.Count : 0; }
-        }
-
-        [JsonIgnore]
-        public string PasswordDisplay
-        {
-            get
+            get { return _state; }
+            set
             {
-                if (Settings.Config.ShowPasswords)
-                {
-                    return Password;
-                }
-
-                return "••••••••";
+                SetAndNotify(ref _state, value, nameof(State));
+                RaisePropertyChanged(nameof(StateDisplay));
             }
         }
+
+        private Region _region;
+        public Region Region
+        {
+            get { return _region; }
+            set { SetAndNotify(ref _region, value, nameof(Region)); }
+        }
+
+        [JsonIgnore]
+        public int Champions => ChampionList?.Count ?? 0;
+
+        [JsonIgnore]
+        public int Skins => SkinList?.Count ?? 0;
+
+        private bool _showPassword = Settings.Config.ShowPasswords;
+        [JsonIgnore]
+        public bool ShowPassword
+        {
+            get { return _showPassword; }
+            set
+            {
+                SetAndNotify(ref _showPassword, value, nameof(ShowPassword));
+                RaisePropertyChanged(nameof(PasswordDisplay));
+            }
+        }
+        [JsonIgnore]
+        public string PasswordDisplay => ShowPassword ? Password : new string('\u2022', Password.Length);
 
         [JsonIgnore]
         public string StateDisplay

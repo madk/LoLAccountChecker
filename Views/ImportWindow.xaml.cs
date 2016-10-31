@@ -27,7 +27,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using LoLAccountChecker.Classes;
-using PVPNetConnect;
+using PVPNetClient;
 
 #endregion
 
@@ -35,9 +35,9 @@ namespace LoLAccountChecker.Views
 {
     public partial class ImportWindow
     {
-        private readonly List<Account> _accounts;
+        private readonly List<string[]> _accounts;
 
-        public ImportWindow(List<Account> accounts)
+        public ImportWindow(List<string[]> accounts)
         {
             InitializeComponent();
 
@@ -55,13 +55,30 @@ namespace LoLAccountChecker.Views
 
         private void BtnImportClick(object sender, RoutedEventArgs e)
         {
-            foreach (var account in _accounts.Where(a => Checker.Accounts.All(aa => aa.Username != a.Username)))
+            foreach (string[] account in _accounts.Where(a => Checker.Accounts.All(aa => !string.Equals(aa.Username, a[0], StringComparison.CurrentCultureIgnoreCase))))
             {
-                Checker.Accounts.Add(account);
+                try
+                {
+                    Region region;
+                    if (account.Length < 3 || !Enum.TryParse(account[2], true, out region))
+                    {
+                        region = Settings.Config.SelectedRegion;
+                    }
+
+                    Account loginData = new Account
+                    {
+                        Username = account[0],
+                        Password = account[1],
+                        State = Account.Result.Unchecked,
+                        Region = region
+                    };
+
+                    Checker.Accounts.Add(loginData);
+                }
+                catch
+                {
+                }
             }
-            
-            MainWindow.Instance.UpdateControls();
-            AccountsWindow.Instance.RefreshAccounts();
             
             Close();
         }

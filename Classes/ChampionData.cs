@@ -21,6 +21,7 @@
 
 #region
 
+using Newtonsoft.Json;
 using System;
 
 #endregion
@@ -32,5 +33,26 @@ namespace LoLAccountChecker.Classes
         public int Id { get; set; }
         public string Name { get; set; }
         public DateTime PurchaseDate { get; set; }
+        public int Skins { get; set; }
+
+        [JsonIgnore]
+        public string ImageUrl
+        {
+            get
+            {
+                try
+                {
+                    string strId = LeagueData.GetChampion(Id).StrId;
+                    return $"http://ddragon.leagueoflegends.com/cdn/{Settings.Config.DataDragonVersion}/img/champion/{strId}.png";
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+        }
+
+        [JsonIgnore]
+        public bool HasSkin { get; set; }
     }
 }

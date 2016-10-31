@@ -22,14 +22,18 @@
 #region
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using LoLAccountChecker.Classes;
 using Microsoft.Win32;
+using MahApps.Metro.Controls.Dialogs;
+using StringLib;
 
 #endregion
 
@@ -37,172 +41,204 @@ namespace LoLAccountChecker.Views
 {
     public partial class ExportWindow
     {
-        public static ExportWindow Instance;
-
         private readonly IEnumerable<Account> _accounts;
 
         public ExportWindow(IEnumerable<Account> accounts)
         {
             InitializeComponent();
 
-            Instance = this;
-
             _accounts = accounts;
 
-            if (File.Exists("ExportFormat.txt"))
+            if (Settings.Config.DefaultCustomExportFilename != null)
             {
-                using (var sr = new StreamReader("ExportFormat.txt"))
+                string filepath = Path.Combine(Directory.GetCurrentDirectory(), "ExportTemplates", Settings.Config.DefaultCustomExportFilename);
+                LoadFile(filepath);
+            }
+        }
+
+        public ExportWindow(string filename)
+        {
+            InitializeComponent();
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Title = "Export Help";
+            FormatBox.IsReadOnly = true;
+            FormatBox.VerticalScrollBarVisibility = ScrollBarVisibility.Visible;
+            Buttons.Visibility = Visibility.Collapsed;
+            LoadFile(filename);
+        }
+
+        private bool LoadFile(string filepath)
+        {
+            if (File.Exists(filepath))
+            {
+                FormatBox.Text = File.ReadAllText(filepath);
+                return true;
+            }
+            return false;
+        }
+
+        private async void ButtonClick(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is Button))
+            {
+                return;
+            }
+
+            Button s = (Button) sender;
+
+            if (s.Name == "HelpButton")
+            {
+                ExportWindow w = new ExportWindow("CustomExport.nfo");
+                w.Show();
+                return;
+            }
+
+            SaveFileDialog sfd = new SaveFileDialog
+            {
+                InitialDirectory = Directory.GetCurrentDirectory()
+            };
+
+            if (s.Name == "OpenButton")
+            {
+                OpenFileDialog ofd = new OpenFileDialog
                 {
-                    FormatBox.Text = sr.ReadToEnd();
+                    InitialDirectory = Directory.GetCurrentDirectory(),
+                    Filter = "Text File(*.txt) | *.txt",
+                    Multiselect = false,
+                    CheckFileExists = true
+                };
+                if (ofd.ShowDialog() == true)
+                {
+                    if (LoadFile(ofd.FileName))
+                    {
+                        Settings.Config.DefaultCustomExportFilename = ofd.SafeFileName;
+                    }
+                }
+            }
+            else if (s.Name == "SaveButton")
+            {
+                sfd.Filter = "Text File (*.txt)|*.txt";
+
+                if (sfd.ShowDialog() == true && !string.IsNullOrEmpty(sfd.FileName))
+                {
+                    using (var sw = new StreamWriter(sfd.FileName))
+                    {
+                        sw.Write(FormatBox.Text);
+                    }
+                    Settings.Config.DefaultCustomExportFilename = sfd.SafeFileName;
+                    await this.ShowMessageAsync("Export Template", "Template has been successfully saved.");
+                }
+            }
+            else if (s.Name == "ExportButton")
+            {
+                Regex accountBlockRegex = new Regex("\\[Account](.+?)\\[\\/Account]", RegexOptions.Singleline);
+                Match accountBlock = accountBlockRegex.Match(FormatBox.Text);
+
+                if (string.IsNullOrEmpty(FormatBox.Text) || !accountBlock.Success)
+                {
+                    return;
+                }
+
+                sfd.FileName = "output";
+                sfd.Filter = "Text File (*.txt)|*.txt|Html Document (*.htm)|*.htm";
+
+                if (new Regex(@"<[^>]+>").IsMatch(FormatBox.Text))
+                {
+                    sfd.DefaultExt = ".htm";
+                    Utils.UseDefaultExtAsFilterIndex(sfd);
+                }
+
+                if (sfd.ShowDialog() != true || string.IsNullOrEmpty(sfd.FileName))
+                {
+                    return;
+                }
+
+                StringBuilder sb = new StringBuilder();
+
+                try
+                {
+                    foreach (Account account in _accounts)
+                    {
+                        string accountTemplate = accountBlock.Groups[1].Value;
+                        accountTemplate = PopulateLists(accountTemplate, account);
+                        accountTemplate = accountTemplate.HenriFormat(account);
+
+                        sb.Append(accountTemplate);
+                    }
+
+                    string output = sb.ToString().Trim(Environment.NewLine.ToCharArray());
+                    output = FormatBox.Text.Replace(accountBlock.Groups[0].Value, output);
+
+                    Regex indexRegex = new Regex("%index=?(\\d+)?:?(\\d+)?%");
+                    MatchCollection indexMatches = indexRegex.Matches(output);
+
+                    if (indexMatches.Count > 0)
+                    {
+                        int index = 1;
+                        int digits = 1;
+
+                        string indexStartValue = indexMatches[0].Groups[1].Value;
+                        if (!string.IsNullOrEmpty(indexStartValue))
+                        {
+                            index = int.Parse(indexStartValue);
+                        }
+
+                        string indexDigitsValue = indexMatches[0].Groups[2].Value;
+                        if (!string.IsNullOrEmpty(indexDigitsValue))
+                        {
+                            int d = int.Parse(indexDigitsValue);
+                            if (d > 0)
+                            {
+                                digits = d;
+                            }
+                        }
+
+                        output = indexRegex.Replace(output, m => index++.ToString(new string('0', digits)));
+                    }
+
+                    using (var sw = new StreamWriter(sfd.FileName))
+                    {
+                        sw.Write(output);
+                    }
+
+                    await this.ShowMessageAsync("Export", $"Accounts Exported: {_accounts.Count()}");
+
+                    Close();
+                }
+                catch (Exception ex)
+                {
+                    Utils.ExportException(ex);
+                    await this.ShowMessageAsync("Export", "An error occured. Check the logs for more information.");
                 }
             }
         }
 
-        private void BtnSaveClick(object sender, RoutedEventArgs e)
+        readonly Regex _listsRegex = new Regex("\\[(\\w+)](.+?)\\[\\/\\w+]", RegexOptions.Singleline);
+        // ChampionList, SkinList, RuneList
+        private string PopulateLists(string template, object obj)
         {
-            if (!(sender is Button))
-                return;
-            Button s = (Button)sender;
-            var sfd = new SaveFileDialog();
-            if (s.Name == "save")
+            foreach (Match part in _listsRegex.Matches(template))
             {
+                string tag = part.Groups[1].Value;
+                string content = part.Groups[2].Value;
 
-                if (sfd.ShowDialog() != true)
+                if (obj.GetType().GetProperty(tag) == null)
                 {
-                    return;
+                    continue;
                 }
-            }
+                IEnumerable enumerable = (IEnumerable)Utils.GetPropertyValue(obj, tag);
 
-            using (var sw = new StreamWriter("ExportFormat.txt"))
-            {
-                sw.Write(FormatBox.Text);
-            }
+                StringBuilder sbListLines = new StringBuilder();
 
-            var sb = new StringBuilder();
-
-            foreach (var account in _accounts)
-            {
-                var format = FormatBox.Text;
-
-                // Champion List
-                var champListRegex = new Regex("\\[%CHAMPIONLIST%](.*?)\\[\\/%CHAMPIONLIST%]", RegexOptions.Singleline);
-
-                if (champListRegex.IsMatch(format))
+                foreach (var o in enumerable)
                 {
-                    var clSb = new StringBuilder();
-
-                    var clFormat = champListRegex.Matches(format)[0];
-
-                    foreach (var champion in account.ChampionList)
-                    {
-                        var cFormat = clFormat.Groups[1].Value;
-
-                        if (cFormat.StartsWith("\n"))
-                        {
-                            cFormat = cFormat.Substring(1);
-                        }
-
-                        cFormat = cFormat.Replace("%ID%", champion.Id.ToString());
-                        cFormat = cFormat.Replace("%NAME%", champion.Name);
-                        cFormat = cFormat.Replace("%PUCHASEDATE%", champion.PurchaseDate.ToString());
-
-                        clSb.Append(cFormat);
-                    }
-
-                    format = format.Replace(clFormat.Value, clSb.ToString());
+                    sbListLines.Append(content.HenriFormat(o));
                 }
-
-                // Skin List
-                var skinListRegex = new Regex("\\[%SKINLIST%](.*?)\\[\\/%SKINLIST%]", RegexOptions.Singleline);
-
-                if (skinListRegex.IsMatch(format))
-                {
-                    var slSb = new StringBuilder();
-
-                    var slFormat = skinListRegex.Matches(format)[0];
-
-                    foreach (var skin in account.SkinList)
-                    {
-                        var sFormat = slFormat.Groups[1].Value;
-
-                        if (sFormat.StartsWith("\n"))
-                        {
-                            sFormat = sFormat.Substring(1);
-                        }
-
-                        sFormat = sFormat.Replace("%ID%", skin.Id.ToString());
-                        sFormat = sFormat.Replace("%CHAMPION%", LeagueData.GetChampion(skin.ChampionId).Name);
-                        sFormat = sFormat.Replace("%NAME%", skin.Name);
-
-                        slSb.Append(sFormat);
-                    }
-
-                    format = format.Replace(slFormat.Value, slSb.ToString());
-                }
-
-                // Rune List
-                var runeListRegex = new Regex("\\[%RUNELIST%](.*?)\\[\\/%RUNELIST%]", RegexOptions.Singleline);
-
-                if (runeListRegex.IsMatch(format))
-                {
-                    var rlSb = new StringBuilder();
-
-                    var rlFormat = skinListRegex.Matches(format)[0];
-
-                    foreach (var rune in account.Runes)
-                    {
-                        var rFormat = rlFormat.Groups[1].Value;
-
-                        if (rFormat.StartsWith("\n"))
-                        {
-                            rFormat = rFormat.Substring(1);
-                        }
-
-                        rFormat = rFormat.Replace("%NAME%", rune.Name);
-                        rFormat = rFormat.Replace("%DESCRIPTION%", rune.Description);
-                        rFormat = rFormat.Replace("%TIER%", rune.Tier.ToString());
-                        rFormat = rFormat.Replace("%QUANTITY%", rune.Quantity.ToString());
-
-                        rlSb.Append(rFormat);
-                    }
-
-                    format = format.Replace(rlFormat.Value, rlSb.ToString());
-                }
-
-                // Replace
-                format = format.Replace("%USERNAME%", account.Username);
-                format = format.Replace("%PASSWORD%", account.Password);
-                format = format.Replace("%SUMMONERNAME%", account.Summoner);
-                format = format.Replace("%LEVEL%", account.Level.ToString());
-                format = format.Replace("%EMAILSTATUS%", account.EmailStatus);
-                format = format.Replace("%RP%", account.RpBalance.ToString());
-                format = format.Replace("%IP%", account.IpBalance.ToString());
-                format = format.Replace("%CHAMPIONS%", account.Champions.ToString());
-                format = format.Replace("%SKINS%", account.Skins.ToString());
-                format = format.Replace("%RUNEPAGES%", account.RunePages.ToString());
-                format = format.Replace("%REFUNDS%", account.Refunds.ToString());
-                format = format.Replace("%REGION%", account.Region.ToString());
-                format = format.Replace("%LASTPLAY%", account.LastPlay.ToString());
-                format = format.Replace("%RANK%", account.SoloQRank);
-                format = format.Replace("%CHECKTIME%", account.CheckedTime.ToString());
-
-
-                sb.Append(format + Environment.NewLine);
+                string temp = part.Groups[0].Value;
+                temp = temp.Replace(temp, sbListLines.ToString()).Trim(Environment.NewLine.ToCharArray());
+                template = template.Replace(part.Groups[0].Value, temp);
             }
-
-            if (s.Name == "save")
-            {
-                using (var sw = new StreamWriter(sfd.FileName))
-                {
-                    sw.Write(sb.ToString());
-                }
-            }
-            else if (s.Name == "copy")
-            {
-                Clipboard.SetText(sb.ToString());
-            }
-
-            Close();
+            return template;
         }
     }
 }
