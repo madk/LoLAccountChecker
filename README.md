@@ -1,3 +1,10 @@
+Discontinued
+=================
+This tool has been discontinued, please check for forks as i will not update it anymore.
+I recommend cheking @yokrysty's one, its being mantained and has new features.
+[yokrysty](https://github.com/yokrysty)/[LoLAccountChecker](https://github.com/yokrysty/LoLAccountChecker)
+
+
 # LoLAccountChecker
 
 This tool will give you some information about your league of legends accounts and store them in a text file.
