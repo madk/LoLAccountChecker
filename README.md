@@ -1,7 +1,7 @@
 Discontinued
 =================
 This tool has been discontinued, please check for forks as i will not update it anymore.
-I recommend cheking @yokrysty one, its being mantained and has new features.
+I recommend cheking @yokrysty one, its being maintained and has new features.
 [yokrysty](https://github.com/yokrysty)/[LoLAccountChecker](https://github.com/yokrysty/LoLAccountChecker)
 
 
